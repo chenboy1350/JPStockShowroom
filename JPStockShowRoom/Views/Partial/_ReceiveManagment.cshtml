@@ -1,0 +1,256 @@
+﻿@model List<JPStockShowRoom.Models.ReceivedListModel>
+
+<div class="container-fluid">
+    <style>
+        #tab-receive-billing.active  { background-color: var(--bs-primary); color: #fff; }
+        #tab-receive-export.active   { background-color: var(--bs-success); color: #fff; }
+        #tab-receive-packing.active  { background-color: var(--bs-warning); color: #1f2d3d; }
+    </style>
+
+    <div class="row">
+        <div class="card">
+            <div class="card-body">
+                <div class="accordion" id="accordionFilter">
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="headingFilter">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseFilter" aria-expanded="false" aria-controls="collapseFilter">
+                                <strong>ค้นหา</strong>
+                            </button>
+                        </h2>
+                        <div id="collapseFilter" class="accordion-collapse collapse" aria-labelledby="headingFilter" data-bs-parent="#accordionFilter">
+                            <div class="accordion-body">
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <div class="form-group">
+                                            <label>เลขใบส่ง</label>
+                                            <input type="text" id="txtFindReceivedNo" class="form-control" placeholder="กรอก ReceiveNo">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="form-group">
+                                            <label>เลขที่งาน</label>
+                                            <input type="text" id="txtFindLotNo" class="form-control" placeholder="กรอก LotNo">
+                                        </div>
+                                    </div>
+                                </div>
+                                <button class="btn btn-secondary" onclick="ClearFindByReceive()">Clear</button>
+                                <button class="btn btn-primary" onclick="findReceive()">ค้นหา</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="card">
+            <div class="card-header p-2">
+                <ul class="nav nav-pills" id="receiveTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="tab-receive-billing" data-bs-toggle="tab" data-bs-target="#content-receive-billing" type="button" role="tab" aria-controls="content-receive-billing" aria-selected="true">
+                            <i class="fas fa-file-invoice"></i> ลงบิล
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="tab-receive-export" data-bs-toggle="tab" data-bs-target="#content-receive-export" type="button" role="tab" aria-controls="content-receive-export" aria-selected="false">
+                            <i class="fas fa-shipping-fast"></i> ส่งออก
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="tab-receive-packing" data-bs-toggle="tab" data-bs-target="#content-receive-packing" type="button" role="tab" aria-controls="content-receive-packing" aria-selected="false">
+                            <i class="fas fa-box"></i> แพ็คกิ้ง
+                        </button>
+                    </li>
+                </ul>
+            </div>
+            <div class="card-body p-0">
+                <div class="tab-content" id="receiveTabContent">
+
+
+                    <div class="tab-pane fade show active" id="content-receive-billing" role="tabpanel" aria-labelledby="tab-receive-billing">
+                        <div class="table-responsive" style="height:75vh;">
+                            <table id="tbl-billing" class="table table-head-fixed text-nowrap table-packed-custom" style="overflow: auto !important;">
+                                <thead>
+                                    <tr>
+                                        <th class="text-start">#</th>
+                                        <th class="text-start">เลขที่ใบส่ง</th>
+                                        <th class="text-start">วันที่ส่ง</th>
+                                        <th class="text-start">สถานะ</th>
+                                        <th class="text-center"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbl-billing-body">
+                                    @if (Model != null && Model.Any())
+                                    {
+                                        var index = 0;
+                                        foreach (var r in Model)
+                                        {
+                                            index++;
+                                            var status = r.IsReceived && !r.HasRevButNotAll
+                                                ? "<span class=\"badge badge-success\">รับเข้าครบแล้ว</span>"
+                                                : r.HasRevButNotAll && !r.IsReceived
+                                                    ? "<span class=\"badge badge-warning\">รับเข้ายังไม่ครบ</span>"
+                                                    : "<span class=\"badge badge-secondary\">รอรับเข้า</span>";
+                                            <tr data-receive-no="@r.ReceiveNo">
+                                                <td>@index</td>
+                                                <td class="col-receiveno"><strong>@r.ReceiveNo</strong></td>
+                                                <td class="col-mdate">@r.Mdate</td>
+                                                <td class="col-status">@Html.Raw(status)</td>
+                                                <td class="col-action">
+                                                    @if (!r.IsReceived && !r.HasRevButNotAll)
+                                                    {
+                                                        <button class="btn btn-warning btn-sm" onclick="showModalUpdateLot('@r.ReceiveNo')">
+                                                            <i class="fas fa-folder"></i> ตรวจสอบ
+                                                        </button>
+                                                    }
+                                                </td>
+                                            </tr>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <tr>
+                                            <td colspan="5" class="text-center text-muted">ไม่พบข้อมูล</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+
+                    <div class="tab-pane fade" id="content-receive-export" role="tabpanel" aria-labelledby="tab-receive-export">
+                        <div class="table-responsive" style="height:75vh;">
+                            <table id="tbl-export" class="table table-head-fixed text-nowrap table-packed-custom" style="overflow: auto !important;">
+                                <thead>
+                                    <tr>
+                                        <th class="text-start">#</th>
+                                        <th class="text-start">เลขที่ใบส่ง</th>
+                                        <th class="text-start">วันที่ส่ง</th>
+                                        <th class="text-start">สถานะ</th>
+                                        <th class="text-center"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbl-export-body">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+
+                    <div class="tab-pane fade" id="content-receive-packing" role="tabpanel" aria-labelledby="tab-receive-packing">
+                        <div class="table-responsive" style="height:75vh;">
+                            <table id="tbl-packing" class="table table-head-fixed text-nowrap table-packed-custom" style="overflow: auto !important;">
+                                <thead>
+                                    <tr>
+                                        <th class="text-start">#</th>
+                                        <th class="text-start">เลขที่ใบส่ง</th>
+                                        <th class="text-start">วันที่ส่ง</th>
+                                        <th class="text-start">สถานะ</th>
+                                        <th class="text-center"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbl-packing-body">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modal-update">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="txtTitleUpdate"><i class='fas fa-folder-plus'></i> รายการนำเข้าใบรับ :</h4>
+                <input type="hidden" id="hddReceiveNo" value="" />
+                <button type="button" class="close" onclick="$('#modal-update').modal('hide')" aria-label="Close">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="card-body table-responsive" style="height:87vh; padding: 0px !important;">
+                    <table class="table table-head-fixed text-nowrap table-packed-custom" style="overflow: auto !important;">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>รหัสลูกค้า</th>
+                                <th>OrderNo</th>
+                                <th>LotNo</th>
+                                <th>ลำดับที่</th>
+                                <th>FN</th>
+                                <th>รหัสสินค้า</th>
+                                <th>จำนวน</th>
+                                <th>น้ำหนักรวม(g)</th>
+                                <th class="text-center">
+                                    <div class="chk-wrapper">
+                                        <input type="checkbox" id="chkSelectAll" class="custom-checkbox" checked>
+                                        <label for="chkSelectAll" class="ms-2 mb-0">เลือก</label>
+                                    </div>
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbl-received-body">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer justify-content-end">
+                <button type="button" class="btn btn-warning" id="btnUpdateLot">รับเข้ารายการที่เลือก</button>
+                <button type="button" class="btn btn-default" onclick="$('#modal-update').modal('hide')">ปิด</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modal-cancel-update">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="txtTitleCancelUpdate"><i class='fas fa-folder-plus'></i> รายการนำเข้าใบรับ :</h4>
+                <input type="hidden" id="hddCancelReceiveNo" value="" />
+                <button type="button" class="close" onclick="$('#modal-cancel-update').modal('hide')" aria-label="Close">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="card-body table-responsive" style="padding: 0px !important;">
+                    <table class="table table-head-fixed text-nowrap table-packed-custom">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>รหัสลูกค้า</th>
+                                <th>OrderNo</th>
+                                <th>LotNo</th>
+                                <th>ลำดับที่</th>
+                                <th>เลขที่งาน</th>
+                                <th>รหัสสินค้า</th>
+                                <th>จำนวน</th>
+                                <th>น้ำหนักรวม(g)</th>
+                                <th class="text-center">
+                                    <div class="chk-wrapper">
+                                        <input type="checkbox" id="chkCancelSelectAll" class="custom-checkbox" checked>
+                                        <label for="chkCancelSelectAll" class="ms-2 mb-0">เลือก</label>
+                                    </div>
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbl-cancel-received-body">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer justify-content-end">
+                <button type="button" class="btn btn-danger" id="btnCancelUpdateLot">ยกเลิกรายการที่เลือก</button>
+                <button type="button" class="btn btn-default" onclick="$('#modal-cancel-update').modal('hide')">ปิด</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="page-title" data-title="ใบรับสินค้า (ลงบิล)"></div>

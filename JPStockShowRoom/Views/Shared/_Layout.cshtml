@@ -1,0 +1,51 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>JP Stock Showroom</title>
+    <script type="importmap"></script>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/adminlte.min.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/adminlte-modern-theme.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/menu-cards.css" asp-append-version="true" />
+
+    <link rel="stylesheet" href="~/lib/fontawesome/css/all.min.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/plugins/select2/css/select2.min.css" />
+
+    <link rel="stylesheet" href="~/plugins/daterangepicker/daterangepicker.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/plugins/sweetalert2-theme-bootstrap-4/bootstrap-4.min.css" asp-append-version="true" />
+
+</head>
+<body class="sidebar-mini sidebar-collapse">
+    @RenderBody()
+
+    <!-- Loading Indicator with Backdrop -->
+    <div id="loadingIndicator" class="loading-backdrop" style="display: none;">
+        <div class="loading-content">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <div class="loading-text">Loading...</div>
+        </div>
+    </div>
+
+    <button type="button" class="btn" id="btnTop" onclick="scrollToTop()">
+        <i class="fas fa-arrow-up"></i>
+    </button>
+
+    <script src="~/plugins/sweetalert2/sweetalert2.min.js" asp-append-version="true"></script>
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/adminlte.min.js" asp-append-version="true"></script>
+    <script src="~/lib/fontawesome/js/all.min.js" asp-append-version="true"></script>
+    <script src="~/plugins/select2/js/select2.full.min.js"></script>
+    <script src="~/plugins/moment/moment.min.js" asp-append-version="true"></script>
+    <script src="~/plugins/daterangepicker/daterangepicker.js" asp-append-version="true"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+
+
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

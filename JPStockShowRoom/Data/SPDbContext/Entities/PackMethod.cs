@@ -1,0 +1,27 @@
+﻿using System;
+using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+using Microsoft.EntityFrameworkCore;
+
+namespace JPStockShowRoom.Data.SPDbContext.Entities;
+
+public partial class PackMethod
+{
+    [Key]
+    [Column("PackMethodID")]
+    public int PackMethodId { get; set; }
+
+    [StringLength(50)]
+    [Unicode(false)]
+    public string? Name { get; set; }
+
+    public bool IsActive { get; set; }
+
+    [Column(TypeName = "datetime")]
+    public DateTime? CreateDate { get; set; }
+
+    [Column(TypeName = "datetime")]
+    public DateTime? UpdateDate { get; set; }
+}
+

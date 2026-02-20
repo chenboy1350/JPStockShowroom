@@ -1,0 +1,96 @@
+﻿using JPStockShowRoom.Services.Interface;
+using Microsoft.AspNetCore.Mvc;
+
+namespace JPStockShowRoom.Controllers
+{
+    public class AuthController(IAuthService userService, ICacheService cacheService) : Controller
+    {
+        private readonly IAuthService _authService = userService;
+        private readonly ICacheService _cacheService = cacheService;
+
+        public IActionResult Login()
+        {
+            var rememberedUsername = Request.Cookies["RememberedUsername"];
+            var rememberMeChecked = Request.Cookies["RememberMeChecked"] == "true";
+
+            ViewBag.RememberedUsername = rememberedUsername;
+            ViewBag.RememberMeChecked = rememberMeChecked;
+
+            return View();
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> Login(string username, string password, bool remember)
+        {
+            try
+            {
+                var result = await _authService.LoginUserAsync(username, password, remember);
+
+                if (!result.Success)
+                    return Json(new { success = false, message = result.Message });
+
+                return Json(new { success = true, redirectUrl = Url.Action("Index", "Home") });
+            }
+            catch (Exception ex)
+            {
+                return Json(new
+                {
+                    success = false,
+                    message = "EX: " + ex.Message,
+                    stack = ex.StackTrace
+                });
+            }
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> Logout()
+        {
+            await _authService.LogoutAsync();
+
+            _cacheService.Remove("EmployeeList");
+            _cacheService.Remove("DepartmentList");
+            _cacheService.Remove("UserList");
+
+            return Json(new
+            {
+                success = true,
+                redirectUrl = Url.Action("Login", "Auth")
+            });
+        }
+
+        [HttpPost("refresh-session")]
+        public async Task<IActionResult> RefreshSession()
+        {
+            var result = await _authService.RefreshTokenAsync();
+
+            if (result.Success)
+            {
+                return Ok(new { message = "Session refreshed successfully" });
+            }
+
+            return Unauthorized(new { message = result.Message });
+        }
+
+        [HttpPost("logout-session")]
+        public async Task<IActionResult> LogoutSession()
+        {
+            await _authService.LogoutAsync();
+            return Ok(new { message = "Logged out successfully" });
+        }
+
+        [HttpGet("check-user")]
+        public IActionResult CheckUser()
+        {
+            if (User.Identity.IsAuthenticated)
+            {
+                return Ok(new { 
+                    isAuthenticated = true, 
+                    username = User.Identity.Name,
+                    claims = User.Claims.Select(c => new { c.Type, c.Value })
+                });
+            }
+            return Unauthorized(new { isAuthenticated = false });
+        }
+    }
+}
+

@@ -1,0 +1,28 @@
+﻿using System;
+using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+using Microsoft.EntityFrameworkCore;
+
+namespace JPStockShowRoom.Data.SPDbContext.Entities;
+
+public partial class WorkTableMember
+{
+    [Key]
+    public int Id { get; set; }
+
+    [Column("WorkTable_ID")]
+    public int WorkTableId { get; set; }
+
+    [Column("Emp_ID")]
+    public int EmpId { get; set; }
+
+    public bool IsActive { get; set; }
+
+    [Column(TypeName = "datetime")]
+    public DateTime? CreateDate { get; set; }
+
+    [Column(TypeName = "datetime")]
+    public DateTime? UpdateDate { get; set; }
+}
+

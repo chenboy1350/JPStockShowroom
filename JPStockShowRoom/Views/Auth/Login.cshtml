@@ -1,0 +1,83 @@
+﻿@using Microsoft.AspNetCore.Mvc.Rendering
+@{
+    ViewData["Title"] = "Login";
+}
+
+<div class="hold-transition login-page">
+    <div class="login-box">
+        <div class="login-logo">
+            <a href="#"><b>JP</b> STOCK SHOWROOM</a>
+        </div>
+        <div class="card">
+            <div class="card-body login-card-body">
+                <p class="login-box-msg">Sign in to start your session</p>
+
+                <form id="frmSignIn">
+                    <div class="input-group mb-3">
+                        <input id="username" type="text" class="form-control" placeholder="Username" value="@ViewBag.RememberedUsername" required>
+                        <div class="input-group-append">
+                            <div class="input-group-text">
+                                <span class="fas fa-user"></span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="input-group mb-3">
+                        <input id="password" type="password" class="form-control" placeholder="Password" required>
+                        <div class="input-group-append">
+                            <div class="input-group-text">
+                                <span class="fas fa-lock"></span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-8">
+                            <div class="chk-wrapper">
+                                <input type="checkbox" id="remember" class="custom-checkbox" @(ViewBag.RememberMeChecked ? "checked" : "") />
+                                <label for="remember" class="ms-2 mb-0">
+                                    Remember Me
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <button type="submit" class="btn btn-primary btn-block">Sign In</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        $(document).ready(function () {
+            $('#frmSignIn').on('submit', async function (e) {
+                e.preventDefault();
+                $('#loadingIndicator').show();
+                $.ajax({
+                    url: '@Url.Action("Login", "Auth")',
+                    type: 'POST',
+                    data: {
+                        username: $('#username').val(),
+                        password: $('#password').val(),
+                        remember: $('#remember').is(':checked')
+                    },
+                    success: async function (response) {
+                        console.log(response);
+                        if (response.success) {
+                            window.location.href = response.redirectUrl;
+                        } else {
+                            $('#loadingIndicator').hide();
+                            await swalWarning(`ชื่อผู้ใช้ หรือ รหัสผ่านไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง`);
+                        }
+                    },
+                    error: async function (err) {
+                        $('#loadingIndicator').hide();
+                        console.log(err);
+                        await swalWarning(`เกิดข้อผิดพลาดในการลงชื่อเข้าใช้`);
+                    }
+                });
+            });
+        });
+    </script>
+}
