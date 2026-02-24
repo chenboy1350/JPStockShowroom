@@ -46,4 +46,3 @@ public partial class Melt
 
     public int? UpdateBy { get; set; }
 }
-

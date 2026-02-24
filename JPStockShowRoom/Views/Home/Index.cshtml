@@ -54,6 +54,13 @@
                         </li>
                     }
 
+                    <li class="nav-item">
+                        <a href="#" class="nav-link" data-action="@Url.Action("PrintReport", "Home")">
+                            <i class="nav-icon fas fa-print"></i>
+                            <p>พิมพ์รายงาน</p>
+                        </a>
+                    </li>
+
                     @if (User.HasClaim("Menu", "UserManagement"))
                     {
                         <li class="nav-header">ADMINISTRATION</li>
@@ -134,6 +141,22 @@
                                 </a>
                             </div>
                         }
+                            <div class="col-xl-3 col-lg-4 col-md-6 col-sm-6 col-12 mb-4">
+                                <a href="#" class="mc-link" data-action="@Url.Action("PrintReport", "Home")">
+                                    <div class="mc-card mc-card--green">
+                                        <div class="mc-icon">
+                                            <i class="fas fa-print"></i>
+                                        </div>
+                                        <div class="mc-content">
+                                            <h4 class="mc-title">พิมพ์รายงาน</h4>
+                                            <p class="mc-desc">พิมพ์รายงานต่างๆ</p>
+                                        </div>
+                                        <div class="mc-arrow">
+                                            <i class="fas fa-arrow-right"></i>
+                                        </div>
+                                    </div>
+                                </a>
+                            </div>
                     </div>
                 </div>
 
@@ -283,11 +306,16 @@
         window.urlWithdrawFromStock = '@Url.Action("WithdrawFromStock", "Home")';
         window.urlGetWithdrawalList = '@Url.Action("GetWithdrawalList", "Home")';
         window.urlGetArticleList = '@Url.Action("GetArticleList", "Home")';
+
+        // Print Report
+        window.urlWithdrawalReport = '@Url.Action("WithdrawalReport", "Home")';
+        window.urlStockReport = '@Url.Action("StockReport", "Home")';
     </script>
 
     <script src="~/js/ReceiveManagement.js" asp-append-version="true"></script>
     <script src="~/js/PermissionManagement.js" asp-append-version="true"></script>
     <script src="~/js/StockManagement.js" asp-append-version="true"></script>
+    <script src="~/js/PrintReport.js" asp-append-version="true"></script>
 
     <script>
         $(document).ready(function() {

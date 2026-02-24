@@ -25,4 +25,3 @@ public partial class Export
 
     public int? UpdateBy { get; set; }
 }
-

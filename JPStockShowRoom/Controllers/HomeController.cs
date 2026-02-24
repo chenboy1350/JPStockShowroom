@@ -19,6 +19,7 @@ namespace JPStockShowRoom.Controllers
         private readonly IConfiguration _configuration;
         private readonly Serilog.ILogger _logger;
         private readonly IPermissionManagement _permissionManagement;
+        private readonly IReportService _reportService;
 
         public HomeController(
             IReceiveManagementService receiveManagementService,
@@ -28,7 +29,8 @@ namespace JPStockShowRoom.Controllers
             IPISService pISService,
             IConfiguration configuration,
             Serilog.ILogger logger,
-            IPermissionManagement permissionManagement)
+            IPermissionManagement permissionManagement,
+            IReportService reportService)
         {
             _receiveManagementService = receiveManagementService;
             _stockManagementService = stockManagementService;
@@ -38,6 +40,7 @@ namespace JPStockShowRoom.Controllers
             _configuration = configuration;
             _logger = logger;
             _permissionManagement = permissionManagement;
+            _reportService = reportService;
         }
 
         [Authorize]
@@ -91,6 +94,63 @@ namespace JPStockShowRoom.Controllers
 
         #endregion
 
+        #region Print Report
+
+        [Authorize]
+        public IActionResult PrintReport()
+        {
+            return PartialView("~/Views/Partial/_PrintReport.cshtml");
+        }
+
+        //[Authorize]
+        //[HttpPost]
+        //public async Task<IActionResult> WithdrawalReport([FromBody] WithdrawalReportFilterModel request)
+        //{
+        //    try
+        //    {
+        //        var all = await _stockManagementService.GetWithdrawalListAsync();
+        //        var filtered = all.AsEnumerable();
+
+        //        if (!string.IsNullOrWhiteSpace(request.Article))
+        //            filtered = filtered.Where(w =>
+        //                (w.Article ?? "").Contains(request.Article, StringComparison.OrdinalIgnoreCase) ||
+        //                (w.TempArticle ?? "").Contains(request.Article, StringComparison.OrdinalIgnoreCase));
+
+        //        if (!string.IsNullOrWhiteSpace(request.EDesArt))
+        //            filtered = filtered.Where(w => w.EDesArt == request.EDesArt);
+
+        //        if (!string.IsNullOrWhiteSpace(request.Unit))
+        //            filtered = filtered.Where(w => w.Unit == request.Unit);
+
+        //        var pdfBytes = _reportService.GenerateWithdrawalReport(filtered.ToList());
+        //        return File(pdfBytes, "application/pdf");
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        _logger.Error(ex, "WithdrawalReport failed: {Message}", ex.Message);
+        //        return StatusCode(500, new { message = ex.Message });
+        //    }
+        //}
+
+        [Authorize]
+        [HttpPost]
+        public async Task<IActionResult> StockReport([FromBody] StockReportFilterModel request)
+        {
+            try
+            {
+                var result = await _stockManagementService.GetStockListAsync(request.Article, request.EDesArt, request.Unit);
+                var pdfBytes = _reportService.GenerateStockReport(result);
+                return File(pdfBytes, "application/pdf");
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "StockReport failed: {Message}", ex.Message);
+                return StatusCode(500, new { message = ex.Message });
+            }
+        }
+
+        #endregion
+
         #region Stock Management
 
         [Authorize]
@@ -99,6 +159,7 @@ namespace JPStockShowRoom.Controllers
             await _stockManagementService.SyncArticlesAsync();
             var articles = await _stockManagementService.GetArticleListAsync();
             ViewBag.Articles = articles;
+            ViewBag.BreakDescriptions = await _stockManagementService.GetBreakDescriptionsAsync();
             return PartialView("~/Views/Partial/_StockManagement.cshtml");
         }
 
@@ -258,6 +319,64 @@ namespace JPStockShowRoom.Controllers
             var imageBytes = System.IO.File.ReadAllBytes(fullPath);
             return File(imageBytes, contentType);
         }
+
+        #region Repair Management
+
+        [HttpPost]
+        [Authorize]
+        public async Task<IActionResult> GetBreak([FromBody] BreakAndLostFilterModel breakAndLostFilterModel)
+        {
+            List<LostAndRepairModel> result = await _stockManagementService.GetBreakAsync(breakAndLostFilterModel);
+            return Ok(result);
+        }
+
+        [HttpPost]
+        [Authorize]
+        public async Task<IActionResult> AddBreak(int receivedId, double breakQty, int breakDes)
+        {
+            try
+            {
+                await _stockManagementService.AddBreakAsync(receivedId, breakQty, breakDes);
+                return Ok(new { message = "เพิ่มรายการชำรุดเรียบร้อย" });
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "AddBreak failed: {Message}", ex.Message);
+                return StatusCode(500, new { message = ex.Message });
+            }
+        }
+
+        [HttpPost]
+        [Authorize]
+        public async Task<IActionResult> AddNewBreakDescription(string breakDescription)
+        {
+            try
+            {
+                var result = await _stockManagementService.AddNewBreakDescription(breakDescription);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "AddNewBreakDescription failed: {Message}", ex.Message);
+                return StatusCode(500, new { message = ex.Message });
+            }
+        }
+
+        [HttpPost]
+        [Authorize]
+        public async Task<IActionResult> BreakReport([FromBody] BreakAndLostFilterModel breakAndLostFilterModel)
+        {
+            List<LostAndRepairModel> result = await _stockManagementService.GetBreakAsync(breakAndLostFilterModel);
+            byte[] pdfBytes = _reportService.GenerateBreakReport(result);
+            await _stockManagementService.PintedBreakReport(breakAndLostFilterModel.BreakIDs);
+
+            string contentDisposition = $"inline; filename=BreakReport_{DateTime.Now:yyyyMMdd}.pdf";
+            Response.Headers.Append("Content-Disposition", contentDisposition);
+
+            return File(pdfBytes, "application/pdf");
+        }
+
+        #endregion
     }
 }
 

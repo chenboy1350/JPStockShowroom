@@ -49,4 +49,3 @@ public partial class Received
     [Column(TypeName = "datetime")]
     public DateTime? UpdateDate { get; set; }
 }
-

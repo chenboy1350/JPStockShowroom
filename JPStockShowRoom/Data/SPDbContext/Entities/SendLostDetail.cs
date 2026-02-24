@@ -39,4 +39,3 @@ public partial class SendLostDetail
 
     public int? UpdateBy { get; set; }
 }
-

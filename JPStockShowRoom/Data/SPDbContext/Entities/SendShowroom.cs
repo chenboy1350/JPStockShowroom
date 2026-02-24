@@ -6,22 +6,24 @@ using Microsoft.EntityFrameworkCore;
 
 namespace JPStockShowRoom.Data.SPDbContext.Entities;
 
-public partial class Assignment
+public partial class SendShowroom
 {
     [Key]
-    public int AssignmentId { get; set; }
+    [StringLength(50)]
+    [Unicode(false)]
+    public string Doc { get; set; } = null!;
 
-    public int NumberWorkers { get; set; }
-
-    public bool HasPartTime { get; set; }
-
-    public bool IsReturned { get; set; }
+    public bool IsReceived { get; set; }
 
     public bool IsActive { get; set; }
 
     [Column(TypeName = "datetime")]
     public DateTime? CreateDate { get; set; }
 
+    public int? CreateBy { get; set; }
+
     [Column(TypeName = "datetime")]
     public DateTime? UpdateDate { get; set; }
+
+    public int? UpdateBy { get; set; }
 }

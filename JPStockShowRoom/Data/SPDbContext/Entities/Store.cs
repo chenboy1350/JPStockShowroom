@@ -43,4 +43,3 @@ public partial class Store
 
     public int? UpdateBy { get; set; }
 }
-

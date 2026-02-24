@@ -64,13 +64,11 @@ public partial class SPDbContext : DbContext
 
     public virtual DbSet<SendQtyToPackDetailSize> SendQtyToPackDetailSize { get; set; }
 
+    public virtual DbSet<SendShowroom> SendShowroom { get; set; }
+
+    public virtual DbSet<SendShowroomDetail> SendShowroomDetail { get; set; }
+
     public virtual DbSet<Store> Store { get; set; }
-
-    public virtual DbSet<Tray> Tray { get; set; }
-
-    public virtual DbSet<TrayItem> TrayItem { get; set; }
-
-    public virtual DbSet<TrayBorrow> TrayBorrow { get; set; }
 
     public virtual DbSet<WorkTable> WorkTable { get; set; }
 
@@ -135,19 +133,9 @@ public partial class SPDbContext : DbContext
             entity.HasKey(e => e.SendLostId).HasName("PK_SendLost");
         });
 
-        modelBuilder.Entity<Tray>(entity =>
+        modelBuilder.Entity<SendShowroomDetail>(entity =>
         {
-            entity.HasKey(e => e.TrayId).HasName("PK_Tray");
-        });
-
-        modelBuilder.Entity<TrayItem>(entity =>
-        {
-            entity.HasKey(e => e.TrayItemId).HasName("PK_TrayItem");
-        });
-
-        modelBuilder.Entity<TrayBorrow>(entity =>
-        {
-            entity.HasKey(e => e.TrayBorrowId).HasName("PK_TrayBorrow");
+            entity.HasKey(e => e.SendShowroomId).HasName("PK_SendShowroomID");
         });
 
         modelBuilder.Entity<WorkTable>(entity =>
@@ -160,4 +148,3 @@ public partial class SPDbContext : DbContext
 
     partial void OnModelCreatingPartial(ModelBuilder modelBuilder);
 }
-

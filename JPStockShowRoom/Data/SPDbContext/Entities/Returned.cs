@@ -25,4 +25,3 @@ public partial class Returned
     [Column(TypeName = "datetime")]
     public DateTime? UpdateDate { get; set; }
 }
-

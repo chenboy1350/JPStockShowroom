@@ -41,4 +41,3 @@ public partial class Order
     [Column(TypeName = "datetime")]
     public DateTime? UpdateDate { get; set; }
 }
-

@@ -187,32 +187,61 @@ namespace JPStockShowRoom.Services.Implement
 
             var newItems = itemsToReceive.Where(x => newReceiveIds.Contains(x.Id)).ToList();
 
-            var now = DateTime.Now;
-            var stockEntities = newItems.Select(item => new Stock
-            {
-                ReceiveId = item.Id,
-                ReceiveNo = item.ReceiveNo,
-                ReceiveFrom = (int)ReceiveFrom.BL,
-                CustCode = item.CustCode ?? "",
-                OrderNo = item.OrderNo ?? "",
-                LotNo = item.Lotno ?? "",
-                TempArticle = item.Article != null && item.Article.StartsWith("Z") ? item.Article : string.Empty,
-                Article = item.Article != null && !item.Article.StartsWith("Z") ? item.Article : string.Empty,
-                ListGem = item.ListGem,
-                Unit = item.Unit ?? "",
-                EdesFn = item.EdesFn,
-                EdesArt = item.EdesArt,
-                Barcode = item.Barcode ?? "",
-                BillNumber = item.Billnumber,
-                ImgPath = item.Picture ?? "",
-                TtQty = item.Ttqty,
-                TtWg = (double)item.Ttwg,
-                IsActive = true,
-                CreateDate = now,
-                UpdateDate = now,
-            }).ToList();
+            var incomingBillNumbers = newItems.Select(x => x.Billnumber).Distinct().ToList();
+            var incomingOrderNos = newItems.Select(x => x.OrderNo).Distinct().ToList();
 
-            await _sWDbContext.Stock.AddRangeAsync(stockEntities);
+            var repairingStocks = await _sWDbContext.Stock
+                .Where(s => s.IsRepairing && incomingBillNumbers.Contains(s.BillNumber) && incomingOrderNos.Contains(s.OrderNo))
+                .ToListAsync();
+
+            var now = DateTime.Now;
+            var stockEntitiesToAdd = new List<Stock>();
+
+            foreach (var item in newItems)
+            {
+                var repairingStock = repairingStocks.FirstOrDefault(s =>
+                    s.BillNumber == item.Billnumber && s.OrderNo == (item.OrderNo ?? ""));
+
+                if (repairingStock != null)
+                {
+                    repairingStock.TtQty += item.Ttqty;
+                    repairingStock.TtWg += (double)item.Ttwg;
+                    repairingStock.IsRepairing = false;
+                    repairingStock.UpdateDate = now;
+
+                    await _sWDbContext.SaveChangesAsync();
+                }
+                else
+                {
+                    stockEntitiesToAdd.Add(new Stock
+                    {
+                        ReceiveId = item.Id,
+                        ReceiveNo = item.ReceiveNo,
+                        ReceiveFrom = (int)ReceiveFrom.BL,
+                        CustCode = item.CustCode ?? "",
+                        OrderNo = item.OrderNo ?? "",
+                        LotNo = item.Lotno ?? "",
+                        TempArticle = item.Article != null && item.Article.StartsWith('Z') ? item.Article : string.Empty,
+                        Article = item.Article != null && !item.Article.StartsWith('Z') ? item.Article : string.Empty,
+                        ListGem = item.ListGem,
+                        Unit = item.Unit ?? "",
+                        EdesFn = item.EdesFn,
+                        EdesArt = item.EdesArt,
+                        Barcode = item.Barcode ?? "",
+                        BillNumber = item.Billnumber,
+                        ImgPath = item.Picture ?? "",
+                        TtQty = item.Ttqty,
+                        TtWg = (double)item.Ttwg,
+                        IsActive = true,
+                        CreateDate = now,
+                        UpdateDate = now,
+                    });
+                }
+            }
+
+            if (stockEntitiesToAdd.Count > 0)
+                await _sWDbContext.Stock.AddRangeAsync(stockEntitiesToAdd);
+
             await _sWDbContext.SaveChangesAsync();
         }
     }

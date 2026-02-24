@@ -114,6 +114,17 @@
                             </a>
                         </li>
                     </ul>
+                    <div class="d-flex gap-1 ms-2">
+                        <button class="btn btn-warning btn-sm shadow-sm" onclick="showBorrowList(null)" title="รายการยืมคืน">
+                            <i class="fas fa-hand-holding"></i> ยืมคืน
+                        </button>
+                        <button class="btn btn-secondary btn-sm shadow-sm" onclick="showWithdrawalHistory()" title="ประวัติซ่อม">
+                            <i class="fas fa-tools"></i> เบิก
+                        </button>
+                        <button class="btn btn-danger btn-sm shadow-sm" onclick="showModalBreak(null)" title="รายการส่งซ่อมทั้งหมด">
+                            <i class="fas fa-hammer"></i> ส่งซ่อม
+                        </button>
+                    </div>
                     <button class="btn btn-primary btn-sm ml-2 shadow-sm d-none" id="btnShowTray" onclick="toggleTrayPanel()" title="แสดง Tray">
                         <i class="fas fa-chevron-left"></i>
                     </button>
@@ -175,9 +186,6 @@
         </div>
     </div>
 </div>
-
-
-
 
 <div class="modal fade" id="modal-add-to-tray">
     <div class="modal-dialog modal-xl">
@@ -324,14 +332,15 @@
                     <table class="table table-head-fixed text-nowrap table-packed-custom" style="overflow: auto !important;">
                         <thead>
                             <tr>
-                                <th style="width: 100px;">#</th>
-                                <th>Article</th>
-                                <th>OrderNo</th>
+                                <th class="text-center">#</th>
+                                <th class="text-center">Article</th>
+                                <th class="text-center">OrderNo</th>
                                 <th class="text-center">EDesFn</th>
                                 <th class="text-center">ListGem</th>
+                                <th class="text-center">Date</th>
                                 <th class="text-end">จำนวน</th>
                                 <th class="text-center">สถานะ</th>
-                                <th class="text-center"></th>
+                                <th class="text-center">Action</th>
                             </tr>
                         </thead>
                         <tbody id="tbl-tray-detail-body">
@@ -397,7 +406,7 @@
     <div class="modal-dialog modal-xl">
         <div class="modal-content">
             <div class="modal-header">
-                <h4 class="modal-title"><i class="fas fa-file-export"></i> ประวัติการเบิกออก (ไม่คืน)</h4>
+                <h4 class="modal-title"><i class="fas fa-tools"></i> ประวัติการเบิกออก (ไม่คืน)</h4>
                 <button type="button" class="close" onclick="$('#modal-withdrawal-history').modal('hide')" aria-label="Close">
                     <span>&times;</span>
                 </button>
@@ -408,21 +417,18 @@
                         <thead>
                             <tr>
                                 <th class="text-center">#</th>
-                                <th>รหัสลูกค้า</th>
-                                <th>OrderNo</th>
-                                <th>LotNo</th>
-                                <th class="text-center">ลำดับ</th>
-                                <th>Barcode</th>
-                                <th>Article</th>
+                                <th class="text-center">Article</th>
+                                <th class="text-center">OrderNo</th>
+                                <th class="text-center">EDesFn</th>
+                                <th class="text-center">ListGem</th>
                                 <th class="text-end">จำนวน</th>
-                                <th class="text-end">น้ำหนัก(g)</th>
                                 <th>หมายเหตุ</th>
-                                <th>วันที่เบิก</th>
+                                <th class="text-center">Date</th>
                             </tr>
                         </thead>
                         <tbody id="tbl-withdrawal-body">
                             <tr>
-                                <td colspan="11" class="text-center text-muted">กำลังโหลด...</td>
+                                <td colspan="8" class="text-center text-muted">กำลังโหลด...</td>
                             </tr>
                         </tbody>
                     </table>
@@ -433,6 +439,99 @@
                     <span class="text-muted" id="txtWithdrawalSummary"></span>
                 </div>
                 <button type="button" class="btn btn-default" onclick="$('#modal-withdrawal-history').modal('hide')">ปิด</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modal-break">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="txtTitleBreak"><i class='fas fa-hammer'></i></h4>
+                <input type="hidden" id="hddStockId" value="" />
+                <button type="button" class="close" onclick="$('#modal-break').modal('hide')" aria-label="Close">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title"></h3>
+
+                        <div class="card-tools">
+                            <button class="btn btn-default" id="btnAddBreakList" onclick="showModalAddBreak()"><i class="fas fa-plus"></i> เพิ่มรายการ</button>
+                            <button class="btn btn-default" id="btnPrintBreakReport" onclick="printBreakToPDF()"><i class="fas fa-print"></i></button>
+                        </div>
+                    </div>
+                    <!-- /.card-header -->
+                    <div class="card-body table-responsive" style="height: 600px; padding: 0px !important;">
+                        <table class="table table-head-fixed text-nowrap table-packed-custom" style="overflow: auto !important;">
+                            <thead>
+                                <tr>
+                                    <th class="text-center">รูป</th>
+                                    <th class="text-center">Article</th>
+                                    <th class="text-center">OrderNo</th>
+                                    <th class="text-center">EDesFn</th>
+                                    <th class="text-center">อาการ</th>
+                                    <th class="text-center">ListGem</th>
+                                    <th class="text-center">Date</th>
+                                    <th class="text-end">จำนวน</th>
+                                    <th class="text-center">พิมพ์</th>
+                                    <th>
+                                        <div class="chk-wrapper">
+                                            <input type="checkbox" id="chkSelectAllBreak" class="custom-checkbox">
+                                            <label for="chkSelectAllBreak" class="ms-2 mb-0">เลือก</label>
+                                        </div>
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbl-body-break">
+                            </tbody>
+                        </table>
+                    </div>
+                    <!-- /.card-body -->
+                </div>
+            </div>
+            <div class="modal-footer justify-content-end">
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<div class="modal fade" id="modal-add-break">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title"><i class="fas fa-plus-circle"></i> เพิ่มรายการเสียหาย</h4>
+                <button type="button" class="close" onclick="$('#modal-add-break').modal('hide')" aria-label="Close">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="">
+                    <label for="txtBreakQty">กรอกจำนวนที่เสียหาย</label>
+                    <input type="number" min="0" id="txtBreakQty" step="0.5" class="form-control">
+                    <label for="ddlBreakDes"><span style="color:red;">*</span> อาการที่ชำรุด</label>
+                    <select id="ddlBreakDes" name="ddlBreakDes" class="form-control" style="width: 100%">
+                        <option value="" selected>-- เลือกอาการ --</option>
+                        @foreach (var des in ViewBag.BreakDescriptions)
+                        {
+                            <option value="@des.BreakDescriptionId">@des.Name</option>
+                        }
+                    </select>
+                    <label for="txtAddBreakDes">เพิ่มใหม่</label>
+                    <div class="input-group">
+                        <input type="text" id="txtAddBreakDes" class="form-control" placeholder="อาการที่ชำรุด" style="display:none;">
+                        <span class="input-group-append">
+                            <button type="button" id="btnAddBreakDes" class="btn btn-info btn-flat"><i class="fas fa-plus"></i></button>
+                        </span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer justify-content-end">
+                <button type="button" class="btn btn-info" id="btnAddBreak">ยืนยัน</button>
             </div>
         </div>
     </div>
@@ -452,4 +551,11 @@
 
     if (typeof findStock === 'function') findStock();
     if (typeof loadTrayList === 'function') loadTrayList();
+
+    function printStockReportCurrent() {
+        const article = ($('#txtArticleSearch').val() || '').trim() || null;
+        const edesArt = $('#ddlEDesArt').val() || null;
+        const unit = $('#ddlUnit').val() || null;
+        printStockToPDF(article, edesArt, unit);
+    }
 </script>

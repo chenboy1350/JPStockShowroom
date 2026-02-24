@@ -35,6 +35,7 @@ builder.Services.AddScoped<IPISService, PISService>();
 builder.Services.AddScoped<IReceiveManagementService, ReceiveManagementService>();
 builder.Services.AddScoped<IPermissionManagement, PermissionManagement>();
 builder.Services.AddScoped<IStockManagementService, StockManagementService>();
+builder.Services.AddScoped<IReportService, ReportService>();
 
 builder.Services.AddAuthentication("AppCookieAuth")
     .AddCookie("AppCookieAuth", options =>

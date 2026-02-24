@@ -36,4 +36,3 @@ public partial class Break
     [Column(TypeName = "datetime")]
     public DateTime? UpdateDate { get; set; }
 }
-

@@ -1,0 +1,101 @@
+<div id="page-title" data-title="พิมพ์รายงาน"></div>
+
+<div class="container-fluid">
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title mb-0">
+                <i class="fas fa-print mr-2"></i>พิมพ์รายงานการเบิก
+            </h3>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label for="txtWithdrawalArticle">Article</label>
+                        <input type="text" id="txtWithdrawalArticle" class="form-control" placeholder="กรอก Article">
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-group">
+                        <label for="ddlWithdrawalEDesArt">ประเภทสินค้า (EDesArt)</label>
+                        <select id="ddlWithdrawalEDesArt" class="form-control">
+                            <option value="">-- ทั้งหมด --</option>
+                            <option value="RING">RING</option>
+                            <option value="EARRING">EARRING</option>
+                            <option value="PENDANT">PENDANT</option>
+                            <option value="NECKLACE">NECKLACE</option>
+                            <option value="BRACELET">BRACELET</option>
+                            <option value="STUD">PIERCING</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="form-group">
+                        <label for="ddlWithdrawalUnit">ประเภทงาน (Unit)</label>
+                        <select id="ddlWithdrawalUnit" class="form-control">
+                            <option value="">-- ทั้งหมด --</option>
+                            <option value="PR">PR</option>
+                            <option value="PC">PC</option>
+                            <option value="SET">SET</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
+                    <button type="button" class="btn btn-primary" onclick="printWithdrawalToPDF()">
+                        <i class="fas fa-print mr-1"></i>พิมพ์รายงาน
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container-fluid mt-3">
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title mb-0">
+                <i class="fas fa-boxes mr-2"></i>พิมพ์รายงานสถานะสต็อค
+            </h3>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label for="txtStockArticle">Article</label>
+                        <input type="text" id="txtStockArticle" class="form-control" placeholder="กรอก Article">
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-group">
+                        <label for="ddlStockEDesArt">ประเภทสินค้า (EDesArt)</label>
+                        <select id="ddlStockEDesArt" class="form-control">
+                            <option value="">-- ทั้งหมด --</option>
+                            <option value="RING">RING</option>
+                            <option value="EARRING">EARRING</option>
+                            <option value="PENDANT">PENDANT</option>
+                            <option value="NECKLACE">NECKLACE</option>
+                            <option value="BRACELET">BRACELET</option>
+                            <option value="STUD">PIERCING</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="form-group">
+                        <label for="ddlStockUnit">ประเภทงาน (Unit)</label>
+                        <select id="ddlStockUnit" class="form-control">
+                            <option value="">-- ทั้งหมด --</option>
+                            <option value="PR">PR</option>
+                            <option value="PC">PC</option>
+                            <option value="SET">SET</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
+                    <button type="button" class="btn btn-primary" onclick="printStockToPDF()">
+                        <i class="fas fa-print mr-1"></i>พิมพ์รายงาน
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

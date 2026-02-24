@@ -1,3 +1,4 @@
+using JPStockShowRoom.Data.SPDbContext.Entities;
 using JPStockShowRoom.Models;
 
 namespace JPStockShowRoom.Services.Interface
@@ -19,5 +20,10 @@ namespace JPStockShowRoom.Services.Interface
         Task WithdrawFromStockAsync(int receivedId, decimal withdrawQty, string? remark, int userId);
         Task<List<WithdrawalModel>> GetWithdrawalListAsync();
         Task SyncArticlesAsync();
+        Task<List<LostAndRepairModel>> GetBreakAsync(BreakAndLostFilterModel filter);
+        Task AddBreakAsync(int receivedId, double breakQty, int breakDes);
+        Task PintedBreakReport(int[]? breakIDs);
+        Task<List<BreakDescription>> GetBreakDescriptionsAsync();
+        Task<List<BreakDescription>> AddNewBreakDescription(string breakDescription);
     }
 }

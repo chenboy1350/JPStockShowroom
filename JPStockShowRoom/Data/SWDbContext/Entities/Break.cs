@@ -4,23 +4,22 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using Microsoft.EntityFrameworkCore;
 
-namespace JPStockShowRoom.Data.SPDbContext.Entities;
+namespace JPStockShowRoom.Data.SWDbContext.Entities;
 
-public partial class Lost
+public partial class Break
 {
     [Key]
-    [Column("LostID")]
-    public int LostId { get; set; }
+    [Column("BreakID")]
+    public int BreakId { get; set; }
 
-    [StringLength(50)]
-    [Unicode(false)]
-    public string LotNo { get; set; } = null!;
+    [Column("StockID")]
+    public int StockId { get; set; }
 
-    [Column("EmployeeID")]
-    public int EmployeeId { get; set; }
+    [Column("BreakDescriptionID")]
+    public int BreakDescriptionId { get; set; }
 
     [Column(TypeName = "decimal(18, 1)")]
-    public decimal? LostQty { get; set; }
+    public decimal BreakQty { get; set; }
 
     public bool IsReported { get; set; }
 

@@ -43,4 +43,3 @@ public partial class ExportDetail
 
     public int? UpdateBy { get; set; }
 }
-

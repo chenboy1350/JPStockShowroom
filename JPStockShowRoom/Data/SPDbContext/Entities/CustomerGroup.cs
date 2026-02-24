@@ -24,4 +24,3 @@ public partial class CustomerGroup
     [Column(TypeName = "datetime")]
     public DateTime? UpdateDate { get; set; }
 }
-

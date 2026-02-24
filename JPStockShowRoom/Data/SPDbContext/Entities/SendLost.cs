@@ -25,4 +25,3 @@ public partial class SendLost
 
     public int? UpdateBy { get; set; }
 }
-

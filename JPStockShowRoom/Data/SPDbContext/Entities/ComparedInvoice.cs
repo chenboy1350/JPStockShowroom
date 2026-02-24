@@ -74,4 +74,3 @@ public partial class ComparedInvoice
 
     public int? UpdateBy { get; set; }
 }
-

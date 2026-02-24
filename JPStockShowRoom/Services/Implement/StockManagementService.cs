@@ -1,10 +1,12 @@
 using JPStockShowRoom.Data.JPDbContext;
 using JPStockShowRoom.Data.SPDbContext;
+using JPStockShowRoom.Data.SPDbContext.Entities;
 using JPStockShowRoom.Data.SWDbContext;
 using JPStockShowRoom.Data.SWDbContext.Entities;
 using JPStockShowRoom.Models;
 using JPStockShowRoom.Services.Interface;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using System.Globalization;
 
 namespace JPStockShowRoom.Services.Implement
@@ -56,7 +58,6 @@ namespace JPStockShowRoom.Services.Implement
                 .Distinct()
                 .ToListAsync();
 
-            // TrayItems for these stocks that have active borrows
             var trayItemsForStocks = await _sWDbContext.TrayItem
                 .Where(ti => ti.IsActive && stockIds.Contains(ti.StockId))
                 .Select(ti => new { ti.TrayItemId, ti.StockId })
@@ -97,11 +98,12 @@ namespace JPStockShowRoom.Services.Implement
                     EDesFn = s.EdesFn ?? string.Empty,
                     IsInTray = inTrayQty > 0,
                     TrayNo = trayNos,
-                    TrayId = 0,
                     IsWithdrawn = withdrawnStockIds.Contains(s.StockId),
+                    IsRepairing = s.IsRepairing,
                     BorrowCount = stockBorrowCounts.GetValueOrDefault(s.StockId, 0),
-                    CreateDate = s.CreateDate?.ToString("dd MMMM yyyy", new CultureInfo("th-TH")) ?? string.Empty,
-                    FileName = (s.ImgPath ?? "").Split("\\", StringSplitOptions.None).LastOrDefault() ?? string.Empty,
+                    CreateDate = s.CreateDate?.ToString("dd-MM-yyyy", new CultureInfo("th-TH")) ?? string.Empty,
+                    FileName = (s.ImgPath ?? string.Empty).Split("\\", StringSplitOptions.None).LastOrDefault() ?? string.Empty,
+                    ImgPath = s.ImgPath ?? string.Empty,
                     EDesArt = s.EdesArt ?? string.Empty,
                     Unit = s.Unit ?? string.Empty
                 };
@@ -333,7 +335,7 @@ namespace JPStockShowRoom.Services.Implement
                         FileName = (s.ImgPath ?? "").Split("\\", StringSplitOptions.None).LastOrDefault() ?? "",
                         TrayId = 0,
                         IsWithdrawn = false,
-                        CreateDate = s.CreateDate?.ToString("dd MMMM yyyy", new CultureInfo("th-TH")) ?? ""
+                        CreateDate = s.CreateDate?.ToString("dd-MM-yyyy", new CultureInfo("th-TH")) ?? ""
                     });
                 }
             }
@@ -560,8 +562,8 @@ namespace JPStockShowRoom.Services.Implement
                     BorrowQty = b.BorrowQty,
                     BorrowWg = b.BorrowWg,
                     BorrowedBy = b.BorrowedBy,
-                    BorrowedDate = b.BorrowDate?.ToString("dd MMMM yyyy", new CultureInfo("th-TH")) ?? "",
-                    ReturnedDate = b.ReturnDate?.ToString("dd MMMM yyyy", new CultureInfo("th-TH")),
+                    BorrowedDate = b.BorrowDate?.ToString("dd-MM-yyyy", new CultureInfo("th-TH")) ?? "",
+                    ReturnedDate = b.ReturnDate?.ToString("dd-MM-yyyy", new CultureInfo("th-TH")),
                     IsReturned = b.IsReturned
                 };
             }).ToList();
@@ -633,21 +635,228 @@ namespace JPStockShowRoom.Services.Implement
                 {
                     WithdrawalId = w.WithdrawalId,
                     ReceivedId = w.StockId,
-                    LotNo = stock?.LotNo ?? "",
-                    Barcode = stock?.Barcode ?? "",
-                    Article = stock?.Article ?? stock?.TempArticle ?? "",
-                    OrderNo = stock?.OrderNo ?? "",
-                    CustCode = stock?.CustCode ?? "",
-                    ListNo = "",
+                    LotNo = stock?.LotNo ?? string.Empty,
+                    Barcode = stock?.Barcode ?? string.Empty,
+                    Article = stock?.Article ?? string.Empty,
+                    TempArticle = stock?.TempArticle,
+                    OrderNo = stock?.OrderNo ?? string.Empty,
+                    CustCode = stock?.CustCode ?? string.Empty,
+                    EDesFn = stock?.EdesFn,
+                    ListGem = stock?.ListGem,
+                    ImgPath = stock?.ImgPath ?? string.Empty,
+                    EDesArt = stock?.EdesArt ?? string.Empty,
+                    Unit = stock?.Unit ?? string.Empty,
                     Qty = w.Qty,
                     Wg = w.Wg,
                     Remark = w.Remark,
                     WithdrawnBy = w.WithdrawnBy,
-                    WithdrawnDate = w.CreateDate?.ToString("dd MMMM yyyy", new CultureInfo("th-TH")) ?? ""
+                    WithdrawnDate = w.CreateDate?.ToString("dd-MM-yyyy", new CultureInfo("th-TH")) ?? string.Empty
                 };
             }).ToList();
 
             return result;
+        }
+
+        public async Task<List<LostAndRepairModel>> GetBreakAsync(BreakAndLostFilterModel breakAndLostFilterModel)
+        {
+            var query = _sWDbContext.Break.Where(b => b.IsActive).AsQueryable();
+
+            if (breakAndLostFilterModel.ReceivedId.HasValue)
+                query = query.Where(b => b.StockId == breakAndLostFilterModel.ReceivedId.Value);
+
+            if (breakAndLostFilterModel.BreakIDs != null && breakAndLostFilterModel.BreakIDs.Length > 0)
+                query = query.Where(b => breakAndLostFilterModel.BreakIDs.Contains(b.BreakId));
+
+            var breaks = await query.OrderByDescending(b => b.CreateDate).Take(100).ToListAsync();
+
+            if (breaks.Count == 0) return [];
+
+            var stockIds = breaks.Select(b => b.StockId).Distinct().ToList();
+            var stocks = await _sWDbContext.Stock
+                .Where(s => stockIds.Contains(s.StockId))
+                .ToDictionaryAsync(s => s.StockId);
+
+            var descIds = breaks.Select(b => b.BreakDescriptionId).Distinct().ToList();
+            var descriptions = await _sPDbContext.BreakDescription
+                .Where(d => descIds.Contains(d.BreakDescriptionId))
+                .ToDictionaryAsync(d => d.BreakDescriptionId, d => d.Name ?? string.Empty);
+
+            return breaks.Select(b =>
+            {
+                stocks.TryGetValue(b.StockId, out var stock);
+                descriptions.TryGetValue(b.BreakDescriptionId, out var descName);
+
+                return new LostAndRepairModel
+                {
+                    BreakID = b.BreakId,
+                    ReceivedID = b.StockId,
+                    ReceiveNo = stock?.ReceiveNo ?? string.Empty,
+                    LotNo = stock?.LotNo ?? string.Empty,
+                    TtQty = stock?.TtQty ?? 0,
+                    TtWg = Math.Round(stock?.TtWg ?? 0, 2),
+                    Barcode = stock?.Barcode ?? string.Empty,
+                    Article = stock?.Article ?? stock?.TempArticle ?? string.Empty,
+                    OrderNo = stock?.OrderNo ?? string.Empty,
+                    CustCode = stock?.CustCode ?? string.Empty,
+                    EdesFn = stock?.EdesFn ?? string.Empty,
+                    ListGem = stock?.ListGem ?? string.Empty,
+                    ImgPath = stock?.ImgPath ?? string.Empty,
+                    BreakQty = b.BreakQty,
+                    IsReported = b.IsReported,
+                    BreakDescription = descName ?? string.Empty,
+                    CreateDateTH = b.CreateDate.GetValueOrDefault().ToString("dd MMMM yyyy", new CultureInfo("th-TH")),
+                    CreateDate = b.CreateDate.GetValueOrDefault()
+                };
+            }).ToList();
+        }
+
+        public async Task AddBreakAsync(int stockID, double breakQty, int breakDes)
+        {
+            if (stockID <= 0)
+                throw new ArgumentException("ReceivedId ไม่ถูกต้อง", nameof(stockID));
+
+            if (breakQty <= 0)
+                throw new ArgumentException("BreakQty ต้องมากกว่า 0", nameof(breakQty));
+
+            var stock = await _sWDbContext.Stock.FirstOrDefaultAsync(r => r.StockId == stockID && r.IsActive);
+            if (stock == null)
+                throw new KeyNotFoundException($"ไม่พบ stockID: {stockID}");
+
+            if ((double)(stock.TtQty) < breakQty)
+                throw new InvalidOperationException($"จำนวน Break ({breakQty}) มากกว่ายอดในรายการ ({stock.TtQty})");
+
+            double oldQty = (double)(stock.TtQty);
+            double oldWg = (double)stock.TtWg;
+            double newQty = oldQty - breakQty;
+            double newWg = oldQty > 0 ? (oldWg / oldQty) * newQty : 0;
+
+            await using var transaction = await _sWDbContext.Database.BeginTransactionAsync();
+            try
+            {
+                _sWDbContext.Break.Add(new Data.SWDbContext.Entities.Break
+                {
+                    StockId = stock.StockId,
+                    BreakQty = (decimal)breakQty,
+                    BreakDescriptionId = breakDes,
+                    IsReported = false,
+                    IsActive = true,
+                    CreateDate = DateTime.Now,
+                    UpdateDate = DateTime.Now
+                });
+
+                stock.TtQty = (decimal)newQty;
+                stock.TtWg = Math.Round(newWg, 2);
+                stock.IsRepairing = true;
+                stock.UpdateDate = DateTime.Now;
+
+                _sWDbContext.Stock.Update(stock);
+
+                await _sWDbContext.SaveChangesAsync();
+
+                await UpdateJobBillSendStockAndSpdreceive(stock.BillNumber, stock.ReceiveId, stock.ReceiveNo, (decimal)newQty, (decimal)Math.Round(newWg, 2));
+
+                await transaction.CommitAsync();
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        }
+
+        private async Task UpdateJobBillSendStockAndSpdreceive(int Billnumber, int ID, string ReceiveNo, decimal TtQty, decimal TtWg)
+        {
+            using var transaction = await _jPDbContext.Database.BeginTransactionAsync();
+            try
+            {
+                var spdreceive = await _jPDbContext.Spdreceive.OrderByDescending(o => o.Ttqty).FirstOrDefaultAsync(o => o.Billnumber == Billnumber && o.Id == ID && o.ReceiveNo == ReceiveNo);
+                if (spdreceive != null)
+                {
+                    spdreceive.Ttqty = TtQty;
+                    spdreceive.Ttwg = TtWg;
+                }
+
+                var jobBillSendStock = await _jPDbContext.JobBillSendStock.FirstOrDefaultAsync(o => o.Billnumber == Billnumber);
+                if (jobBillSendStock != null)
+                {
+                    jobBillSendStock.Ttqty = TtQty;
+                    jobBillSendStock.Ttwg = TtWg;
+                }
+
+                //await _jPDbContext.SaveChangesAsync();
+                //await transaction.CommitAsync();
+            }
+            catch (Exception)
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        }
+
+        public async Task<List<BreakDescription>> GetBreakDescriptionsAsync()
+        {
+            var des = await _sPDbContext.BreakDescription
+                .Where(x => x.IsActive)
+                .Select(x => new BreakDescription
+                {
+                    BreakDescriptionId = x.BreakDescriptionId,
+                    Name = x.Name,
+                })
+                .ToListAsync();
+
+            return [.. des];
+        }
+
+        public async Task<List<BreakDescription>> AddNewBreakDescription(string breakDescription)
+        {
+            using var transaction = await _sPDbContext.Database.BeginTransactionAsync();
+            try
+            {
+                BreakDescription newDescription = new()
+                {
+                    Name = breakDescription,
+                    IsActive = true,
+                    CreateDate = DateTime.Now,
+                    UpdateDate = DateTime.Now
+                };
+
+                _sPDbContext.BreakDescription.Add(newDescription);
+                await _sPDbContext.SaveChangesAsync();
+                await transaction.CommitAsync();
+            }
+            catch (Exception)
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+
+            return await GetBreakDescriptionsAsync();
+        }
+
+
+        public async Task PintedBreakReport(int[]? BreakIDs)
+        {
+            var breaks = await _sWDbContext.Break.Where(b => BreakIDs!.Contains(b.BreakId) && b.IsActive).ToListAsync();
+
+            using var transaction = await _sWDbContext.Database.BeginTransactionAsync();
+            try
+            {
+                foreach (var bek in breaks)
+                {
+                    if (bek.IsReported) continue;
+
+                    bek.IsReported = true;
+                    bek.UpdateDate = DateTime.Now;
+                }
+
+                await _sWDbContext.SaveChangesAsync();
+                await transaction.CommitAsync();
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
         }
 
         public async Task SyncArticlesAsync()

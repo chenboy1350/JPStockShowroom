@@ -12,6 +12,8 @@ public partial class SWDbContext : DbContext
     {
     }
 
+    public virtual DbSet<Break> Break { get; set; }
+
     public virtual DbSet<MappingPermission> MappingPermission { get; set; }
 
     public virtual DbSet<Permission> Permission { get; set; }

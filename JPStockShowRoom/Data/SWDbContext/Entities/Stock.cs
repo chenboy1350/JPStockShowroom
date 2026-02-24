@@ -79,4 +79,6 @@ public partial class Stock
 
     [Column(TypeName = "datetime")]
     public DateTime? UpdateDate { get; set; }
+
+    public bool IsRepairing { get; set; }
 }

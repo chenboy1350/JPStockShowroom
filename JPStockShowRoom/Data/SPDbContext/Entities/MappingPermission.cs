@@ -26,4 +26,3 @@ public partial class MappingPermission
     [Column(TypeName = "datetime")]
     public DateTime? UpdateDate { get; set; }
 }
-

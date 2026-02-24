@@ -34,6 +34,8 @@
         public int BreakID { get; set; } = 0;
         public decimal? BreakQty { get; set; }
         public decimal? LostQty { get; set; }
+        public string ListGem { get; set; } = string.Empty;
+        public string ImgPath { get; set; } = string.Empty;
         public string BreakDescription { get; set; } = string.Empty;
         public string SeldDate1 { get; set; } = string.Empty;
         public decimal? PreviousQty { get; set; }
@@ -41,6 +43,12 @@
         public bool IsReported { get; set; } = false;
         public DateTime CreateDate { get; set; }
         public int LeaderID { get; set; } = 0;
+    }
+
+    public class BreakAndLostFilterModel
+    {
+        public int? ReceivedId { get; set; }
+        public int[]? BreakIDs { get; set; }
     }
 }
 

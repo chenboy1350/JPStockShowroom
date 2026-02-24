@@ -25,4 +25,3 @@ public partial class WorkTableMember
     [Column(TypeName = "datetime")]
     public DateTime? UpdateDate { get; set; }
 }
-

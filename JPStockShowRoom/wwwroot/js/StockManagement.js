@@ -1,13 +1,13 @@
 $(document).ready(function () {
 
-    $(document).on('keydown', '#txtStockFindLotNo, #txtStockFindBarcode, #txtStockFindArticle', function (e) {
+    $(document).on('keydown', '#txtStockFindLotNo, #txtStockFindArticle', function (e) {
         if (e.key === 'Enter') {
             e.preventDefault();
             findStock();
         }
     });
 
-    $(document).on('keydown', '#txtTrayFilterLotNo, #txtTrayFilterBarcode', function (e) {
+    $(document).on('keydown', '#txtTrayFilterLotNo', function (e) {
         if (e.key === 'Enter') {
             e.preventDefault();
             searchReceivedForTray();
@@ -125,6 +125,95 @@ $(document).ready(function () {
         $('#chkTraySelectAll')
             .prop('checked', allEnabled > 0 && allChecked === allEnabled)
             .prop('indeterminate', allChecked > 0 && allChecked < allEnabled);
+    });
+
+    $(document).on("click", "#btnAddBreakDes", async function () {
+        let txtAddBreakDes = $('#txtAddBreakDes').val();
+        if (txtAddBreakDes == '') {
+            $('#txtAddBreakDes').show();
+        } else {
+            await swalConfirm(
+                `ต้องการเพิ่มอาการ "${txtAddBreakDes}" ใช่หรือไม่`, "ยืนยันการเพิ่มอาการใหม่", async () => {
+                    const formData = new FormData();
+                    formData.append("breakDescription", txtAddBreakDes);
+
+                    $.ajax({
+                        url: urlAddNewBreakDescription,
+                        type: 'POST',
+                        processData: false,
+                        contentType: false,
+                        data: formData,
+                        success: async (res) => {
+                            $('#loadingIndicator').hide();
+                            $('#txtAddBreakDes').val('').hide();
+
+                            $('#ddlBreakDes').empty();
+                            $('#ddlBreakDes').append(new Option('-- เลือกอาการ --', ''));
+                            res.forEach(item => {
+                                $('#ddlBreakDes').append(new Option(item.name, item.breakDescriptionId));
+                            });
+                            $('#ddlBreakDes').val(res[res.length - 1].breakDescriptionId);
+
+                            swalToastSuccess("เพิ่มอาการเรียบร้อย");
+                        },
+                        error: async (xhr) => {
+                            $('#loadingIndicator').hide();
+                            let msg = xhr.responseJSON?.message || xhr.responseText || 'เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ';
+                            await swalWarning(`เกิดข้อผิดพลาด (${xhr.status} ${msg})`);
+                        }
+                    });
+                }
+            );
+        }
+    });
+
+    $(document).on('click', '#btnAddBreak', async function () {
+        const breakQty = $('#txtBreakQty').val();
+        const breakDes = $('#ddlBreakDes').val();
+        const stockId = $('#hddStockId').val();
+
+        if (breakQty == '' || breakQty == 0) {
+            await swalWarning('กรุณากรอกจำนวน งานชำรุด');
+            return;
+        }
+
+        if (breakDes == '' || breakDes == 0) {
+            await swalWarning('กรุณาเลือกอาการ');
+            return;
+        }
+
+        await swalConfirm(
+            `ต้องการเพิ่ม รายการชำรุด จำนวน ${breakQty} ชิ้น ใช่หรือไม่`, "ยืนยันการเพิ่ม รายการชำรุด", async () => {
+                const formData = new FormData();
+                formData.append("receivedId", stockId);
+                formData.append("breakQty", breakQty);
+                formData.append("breakDes", breakDes);
+                $.ajax({
+                    url: urlAddBreak,
+                    type: 'POST',
+                    processData: false,
+                    contentType: false,
+                    data: formData,
+                    beforeSend: () => $('#loadingIndicator').show(),
+                    success: async () => {
+                        $('#loadingIndicator').hide();
+                        CloseModal();
+                        findStock();
+                        await swalSuccess("เพิ่ม รายการชำรุด เรียบร้อย");
+                    },
+                    error: async (xhr) => {
+                        $('#loadingIndicator').hide();
+                        let msg = xhr.responseJSON?.message || xhr.responseText || 'เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ';
+                        await swalWarning(`เกิดข้อผิดพลาด (${xhr.status} ${msg})`);
+                    }
+                });
+            }
+        );
+    });
+
+    $(document).on('change', '#chkSelectAllBreak', function () {
+        const isChecked = $(this).is(':checked');
+        $('#tbl-body-break .chk-row:enabled').prop('checked', isChecked);
     });
 });
 
@@ -317,10 +406,23 @@ function renderStockTable() {
                 if (r.borrowCount > 0) {
                     badges += `<span class="badge badge-warning"><i class="fas fa-hand-holding"></i> ยืมอยู่</span>`;
                 }
+                if (r.isRepairing) {
+                    badges += `<span class="badge badge-danger"><i class="fas fa-hammer"></i> ส่งซ่อม</span>`;
+                }
                 statusBadge = `<div class="d-flex flex-column gap-1 align-items-center">${badges}</div>`;
             } else {
-                statusBadge = `<span class="badge badge-success">ในคลัง</span>`;
+                let badges = `<span class="badge badge-success">ในคลัง</span>`;
+                if (r.isRepairing) {
+                    badges += `<span class="badge badge-danger"><i class="fas fa-hammer"></i> ส่งซ่อม</span>`;
+                }
+                statusBadge = r.isRepairing
+                    ? `<div class="d-flex flex-column gap-1 align-items-center">${badges}</div>`
+                    : `<span class="badge badge-success">ในคลัง</span>`;
             }
+
+            const breakBtn = `<button class="btn btn-warning btn-sm w-100" onclick="showModalBreak(${r.receivedId}, '${html(r.article || r.tempArticle || '')}')" title="ส่งซ่อม">
+                        <i class="fas fa-hammer"></i> ส่งซ่อม
+                    </button>`;
 
             if (r.availableQty > 0) {
                 actionBtn = `<div class="d-flex flex-column gap-1 align-items-center">
@@ -330,9 +432,13 @@ function renderStockTable() {
                     <button class="btn btn-danger btn-sm w-100" onclick="withdrawStock(${r.receivedId}, ${r.availableQty}, ${r.ttWg})" title="เบิกออก">
                         <i class="fas fa-file-export"></i> เบิก
                     </button>
+                    ${breakBtn}
                 </div>`;
             } else {
-                actionBtn = '<span class="text-muted small">จองหมดแล้ว</span>';
+                actionBtn = `<div class="d-flex flex-column gap-1 align-items-center">
+                    <span class="text-muted small">จองหมดแล้ว</span>
+                    ${breakBtn}
+                </div>`;
             }
         }
 
@@ -475,8 +581,6 @@ async function deleteTray(trayId, trayNo) {
 function showAddToTrayModal(trayId, trayNo) {
     $('#hddTrayId').val(trayId);
     $('#txtTitleAddToTray').html(`<i class="fas fa-inbox"></i> เลือกสินค้าลงถาด: <strong>${html(trayNo)}</strong>`);
-    $('#txtTrayFilterLotNo').val('');
-    $('#txtTrayFilterBarcode').val('');
     $('#txtAddToTrayArticle').val('');
 
     const modal = $('#modal-add-to-tray');
@@ -489,7 +593,7 @@ function showAddToTrayModal(trayId, trayNo) {
     loadReceivedForTray(trayId, '', '', _selectedArticle || '');
 }
 
-function loadReceivedForTray(trayId, lotNo, barcode, article) {
+function loadReceivedForTray(trayId, article) {
     const tbody = $('#tbl-add-tray-body');
     tbody.html('<tr><td colspan="8" class="text-center text-muted">กำลังค้นหา...</td></tr>');
 
@@ -601,6 +705,7 @@ function showTrayDetail(trayId, trayNo) {
                         <td>${html(x.orderNo)}</td>
                         <td><small>${html(x.eDesFn || '')}</small></td>
                         <td class="text-center">${html(x.listGem || '')}</td>
+                        <td class="text-center">${html(x.createdDate || '')}</td>
                         <td class="text-end">${num(x.qty)}</td>
                         <td class="text-center">${statusBadge}</td>
                         <td class="text-center">${actionBtn}</td>
@@ -735,7 +840,7 @@ function showBorrowList(trayId) {
                             </div>
                         </td>
                         <td class="text-center">
-                            ${html(b.article || '')}<br /><small>${html(b.barcode || '')}</small>
+                            ${html(b.article || '')}<br /><small>${html(b.tempArticle || '')}</small>
                         </td>
                         <td><small>${html(b.eDesFn || '')}</small></td>
                         <td class="text-center">${html(b.listGem || '')}</td>
@@ -860,7 +965,7 @@ async function withdrawStock(receivedId, maxQty, maxWg) {
 function showWithdrawalHistory() {
     const modal = $('#modal-withdrawal-history');
     const tbody = modal.find('#tbl-withdrawal-body');
-    tbody.html('<tr><td colspan="10" class="text-center text-muted">กำลังโหลด...</td></tr>');
+    tbody.html('<tr><td colspan="8" class="text-center text-muted">กำลังโหลด...</td></tr>');
 
     modal.modal('show');
 
@@ -871,7 +976,7 @@ function showWithdrawalHistory() {
             tbody.empty();
 
             if (!items || items.length === 0) {
-                tbody.append('<tr><td colspan="11" class="text-center text-muted">ยังไม่มีรายการเบิกออก</td></tr>');
+                tbody.append('<tr><td colspan="8" class="text-center text-muted">ยังไม่มีรายการเบิกออก</td></tr>');
                 $('#txtWithdrawalSummary').text('');
                 return;
             }
@@ -879,23 +984,26 @@ function showWithdrawalHistory() {
             let totalQty = 0;
             let totalWg = 0;
 
-            const rows = items.map(function (x, i) {
+            const rows = items.map(function (x) {
                 totalQty += Number(x.qty) || 0;
                 totalWg += Number(x.wg) || 0;
 
                 return `
-                    <tr>
-                        <td class="text-center">${i + 1}</td>
-                        <td>${html(x.custCode)}</td>
-                        <td>${html(x.orderNo)}</td>
-                        <td><strong>${html(x.lotNo)}</strong></td>
-                        <td class="text-center">${html(x.listNo)}</td>
-                        <td>${html(x.barcode)}</td>
-                        <td>${html(x.article)}</td>
+                    <tr data-withdrawal-id="${x.withdrawalId}">
+                        <td>
+                            <div class="image-zoom-container">
+                                <img class="imgOrderLot" src="${urlGetImage}?filename=${encodeURIComponent(x.imgPath || "")}" width="80" height="80" alt="Product Image">
+                            </div>
+                        </td>
+                        <td class="text-center">
+                            ${html(x.article || x.tempArticle || "")}<br /><small>${html(x.tempArticle || "")}</small>
+                        </td>
+                        <td class="text-center"><strong>${html(x.orderNo)}</strong></td>
+                        <td><small>${html(x.eDesFn || "")}</small></td>
+                        <td class="text-center">${html(x.listGem || "")}</td>
                         <td class="text-end">${num(x.qty)}</td>
-                        <td class="text-end">${num(x.wg)}</td>
                         <td>${x.remark ? html(x.remark) : '<span class="text-muted">-</span>'}</td>
-                        <td>${html(x.withdrawnDate)}</td>
+                        <td class="text-center text-muted small">${html(x.withdrawnDate)}</td>
                     </tr>`;
             }).join('');
 
@@ -903,7 +1011,7 @@ function showWithdrawalHistory() {
             $('#txtWithdrawalSummary').text(`รวม ${items.length} รายการ | จำนวน: ${num(totalQty)} | น้ำหนัก: ${num(totalWg)} g`);
         },
         error: function (xhr) {
-            tbody.html(`<tr><td colspan="10" class="text-danger text-center">เกิดข้อผิดพลาด</td></tr>`);
+            tbody.html(`<tr><td colspan="8" class="text-danger text-center">เกิดข้อผิดพลาด</td></tr>`);
         }
     });
 }
@@ -1023,4 +1131,139 @@ function confirmAddToTrayReverse() {
             await swalWarning(msg);
         }
     });
+}
+
+async function printBreakToPDF() {
+    const stockId = $('#hddStockId').val();
+
+    const tbekbody = $('#tbl-body-break');
+    const breakIDs = [];
+
+    tbekbody.find('tr').each(function () {
+        const chk = $(this).find('.chk-row');
+        if (chk.is(':checked')) {
+            const breakID = $(this).data('break-id');
+            if (breakID) breakIDs.push(breakID);
+        }
+    });
+
+    if (breakIDs.length === 0) {
+        await swalWarning('กรุณาเลือก break ที่ต้องการพิมพ์');
+        return;
+    }
+
+    let model = {
+        ReceivedId: stockId ? parseInt(stockId) : null,
+        BreakIDs: breakIDs
+    };
+
+    let pdfWindow = window.open('', '_blank');
+
+    $.ajax({
+        url: urlBreakReport,
+        type: 'POST',
+        data: JSON.stringify(model),
+        contentType: "application/json; charset=utf-8",
+        xhrFields: {
+            responseType: 'blob'
+        },
+        success: function (data) {
+            const blob = new Blob([data], { type: 'application/pdf' });
+            const blobUrl = URL.createObjectURL(blob);
+
+            if (pdfWindow) {
+                pdfWindow.location = blobUrl;
+            }
+        },
+        error: async function (xhr) {
+            if (pdfWindow) {
+                pdfWindow.close();
+            }
+
+            let msg = xhr.responseJSON?.message || xhr.responseText || 'เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ';
+            await swalWarning(`เกิดข้อผิดพลาด (${xhr.status} ${msg})`);
+        }
+    });
+}
+
+async function showModalBreak(receivedId, article) {
+    $('#hddStockId').val(receivedId || '');
+
+    const modal = $('#modal-break');
+    const tbody = modal.find('#tbl-body-break');
+    tbody.empty().append('<tr><td colspan="12" class="text-center text-muted">กำลังโหลด...</td></tr>');
+
+    if (receivedId) {
+        $('#btnAddBreakList').removeClass('d-none');
+        modal.find('#txtTitleBreak').html("<i class='fas fa-hammer'></i> รายการแจ้งซ่อม : " + html(article || String(receivedId)));
+    }
+    else {
+        $('#btnAddBreakList').addClass('d-none');
+        modal.find('#txtTitleBreak').html("<i class='fas fa-hammer'></i> รายการแจ้งซ่อมทั้งหมด");
+    }
+
+    modal.modal('show');
+
+    let model = {
+        ReceivedId: receivedId ? parseInt(receivedId) : null,
+    };
+
+    $.ajax({
+        url: urlGetBreak,
+        type: 'POST',
+        data: JSON.stringify(model),
+        contentType: "application/json; charset=utf-8",
+        success: function (data) {
+            tbody.empty();
+            if (!data || data.length === 0) {
+                tbody.append('<tr><td colspan="12" class="text-center text-muted">ไม่พบข้อมูล</td></tr>');
+                return;
+            }
+            const rows = data.map(function (x, i) {
+                return `
+                <tr data-break-id="${html(x.breakID)}">
+                    <td>
+                        <div class="image-zoom-container">
+                            <img class="imgOrderLot" src="${urlGetImage}?filename=${encodeURIComponent(x.imgPath || '')}" width="80" height="80" alt="Product Image">
+                        </div>
+                    </td>
+                    <td>${html(x.article)}</td>
+                    <td>${html(x.orderNo)}</td>
+                    <td>${html(x.edesFn)}</td>
+                    <td>${html(x.breakDescription)}</td>
+                    <td>${html(x.listGem)}</td>
+                    <td class="text-center">${html(x.createDateTH)}</td>
+                    <td class="text-end">${html(x.breakQty)}</td>
+                    <td class="text-center">${x.isReported ? '✔️' : '❌'}</td>
+                    <td class="text-center">
+                        <div class="chk-wrapper">
+                            <input type="checkbox" id="${x.breakID}_as${i}" class="chk-row custom-checkbox" ${!x.isReported ? 'checked' : ''}>
+                            <label for="${x.breakID}_as${i}" class="d-none"></label>
+                        </div>
+                    </td>
+                </tr>`;
+            }).join('');
+            tbody.append(rows);
+        },
+        error: async function (xhr) {
+            tbody.empty().append('<tr><td colspan="12" class="text-center text-muted">ไม่พบข้อมูล</td></tr>');
+            let msg = xhr.responseJSON?.message || xhr.responseText || 'เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ';
+            await swalWarning(`เกิดข้อผิดพลาด (${xhr.status} ${msg})`);
+        }
+    });
+}
+
+async function showModalAddBreak() {
+    $('#txtBreakQty').val(0)
+    $('#ddlBreakDes').val(null)
+    $('#txtAddBreakDes').val('')
+    $('#txtAddBreakDes').hide();
+
+    $('#ddlBreakDes').select2({
+        dropdownParent: $('#modal-add-break'),
+    });
+
+    $('#txtBreakQty').val(0)
+    const modal = $('#modal-add-break');
+    modal.modal('show');
 }

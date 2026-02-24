@@ -98,4 +98,3 @@ public partial class Lot
     [Column(TypeName = "datetime")]
     public DateTime? UpdateDate { get; set; }
 }
-

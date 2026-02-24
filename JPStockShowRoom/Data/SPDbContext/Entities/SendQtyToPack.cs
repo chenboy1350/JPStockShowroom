@@ -28,4 +28,3 @@ public partial class SendQtyToPack
 
     public int? UpdateBy { get; set; }
 }
-

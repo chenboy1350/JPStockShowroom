@@ -34,4 +34,3 @@ public partial class SendQtyToPackDetail
     [Column(TypeName = "datetime")]
     public DateTime? UpdateDate { get; set; }
 }
-
