@@ -6,14 +6,15 @@ using Microsoft.EntityFrameworkCore;
 
 namespace JPStockShowRoom.Data.SWDbContext.Entities;
 
-public partial class TrayItem
+public partial class WithdrawalDetail
 {
     [Key]
-    [Column("TrayItemID")]
-    public int TrayItemId { get; set; }
+    [Column("WithdrawalDetailID")]
+    public int WithdrawalDetailId { get; set; }
 
-    [Column("TrayID")]
-    public int TrayId { get; set; }
+    [StringLength(50)]
+    [Unicode(false)]
+    public string? WithdrawalNo { get; set; }
 
     [Column("StockID")]
     public int StockId { get; set; }
@@ -23,19 +24,19 @@ public partial class TrayItem
 
     public double Wg { get; set; }
 
+    [StringLength(500)]
+    [Unicode(false)]
+    public string? Remark { get; set; }
+
+    public int WithdrawnBy { get; set; }
+
     public bool IsActive { get; set; }
-
-    public int CreatedBy { get; set; }
-
-    public int? UpdatedBy { get; set; }
 
     [Column(TypeName = "datetime")]
     public DateTime? CreateDate { get; set; }
 
+    public int? UpdatedBy { get; set; }
+
     [Column(TypeName = "datetime")]
     public DateTime? UpdateDate { get; set; }
-
-    [ForeignKey("TrayId")]
-    [InverseProperty("TrayItem")]
-    public virtual Tray Tray { get; set; } = null!;
 }

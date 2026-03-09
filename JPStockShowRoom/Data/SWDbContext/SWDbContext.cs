@@ -12,7 +12,15 @@ public partial class SWDbContext : DbContext
     {
     }
 
+    public virtual DbSet<Borrow> Borrow { get; set; }
+
+    public virtual DbSet<BorrowDetail> BorrowDetail { get; set; }
+
+    public virtual DbSet<BorrowTrayDeduction> BorrowTrayDeduction { get; set; }
+
     public virtual DbSet<Break> Break { get; set; }
+
+    public virtual DbSet<BreakDetail> BreakDetail { get; set; }
 
     public virtual DbSet<MappingPermission> MappingPermission { get; set; }
 
@@ -22,15 +30,25 @@ public partial class SWDbContext : DbContext
 
     public virtual DbSet<Tray> Tray { get; set; }
 
-    public virtual DbSet<TrayBorrow> TrayBorrow { get; set; }
-
     public virtual DbSet<TrayItem> TrayItem { get; set; }
 
     public virtual DbSet<Withdrawal> Withdrawal { get; set; }
 
+    public virtual DbSet<WithdrawalDetail> WithdrawalDetail { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.UseCollation("Thai_100_CI_AI");
+
+        modelBuilder.Entity<Break>(entity =>
+        {
+            entity.HasKey(e => e.BreakNo).HasName("PK_Break_1");
+        });
+
+        modelBuilder.Entity<BreakDetail>(entity =>
+        {
+            entity.HasKey(e => e.BreakDetailId).HasName("PK_Break");
+        });
 
         modelBuilder.Entity<MappingPermission>(entity =>
         {
@@ -52,13 +70,6 @@ public partial class SWDbContext : DbContext
             entity.Property(e => e.IsActive).HasDefaultValue(true);
         });
 
-        modelBuilder.Entity<TrayBorrow>(entity =>
-        {
-            entity.HasOne(d => d.TrayItem).WithMany(p => p.TrayBorrow)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("FK_TrayBorrow_TrayItem");
-        });
-
         modelBuilder.Entity<TrayItem>(entity =>
         {
             entity.Property(e => e.IsActive).HasDefaultValue(true);
@@ -66,6 +77,16 @@ public partial class SWDbContext : DbContext
             entity.HasOne(d => d.Tray).WithMany(p => p.TrayItem)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_TrayItem_Tray");
+        });
+
+        modelBuilder.Entity<Withdrawal>(entity =>
+        {
+            entity.HasKey(e => e.WithdrawalNo).HasName("PK_Withdrawal_1");
+        });
+
+        modelBuilder.Entity<WithdrawalDetail>(entity =>
+        {
+            entity.HasKey(e => e.WithdrawalDetailId).HasName("PK_Withdrawal");
         });
 
         OnModelCreatingPartial(modelBuilder);

@@ -1,7 +1,5 @@
-﻿using JPStockShowRoom.Data.SPDbContext.Entities;
-using JPStockShowRoom.Models;
+﻿using JPStockShowRoom.Models;
 using JPStockShowRoom.Services.Helper;
-using JPStockShowRoom.Services.Implement;
 using JPStockShowRoom.Services.Interface;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -53,6 +51,7 @@ namespace JPStockShowRoom.Controllers
         [Authorize]
         public async Task<IActionResult> ReceiveManagement()
         {
+            await _receiveManagementService.SyncAllReceiveHeaderStatusAsync();
             var result = await _receiveManagementService.GetTopJPReceivedAsync(null, null, null);
             return PartialView("~/Views/Partial/_ReceiveManagment.cshtml", result);
         }
@@ -77,9 +76,33 @@ namespace JPStockShowRoom.Controllers
 
         [Authorize]
         [HttpGet]
+        public async Task<IActionResult> GetSPReceiveList(string? receiveNo, string? lotNo)
+        {
+            var result = await _receiveManagementService.GetTopSPReceivedAsync(receiveNo, lotNo);
+            return Json(result);
+        }
+
+        [Authorize]
+        [HttpGet]
+        public async Task<IActionResult> GetSPReceiveRow(string receiveNo)
+        {
+            var result = await _receiveManagementService.GetTopSPReceivedAsync(receiveNo, null);
+            return Json(result.FirstOrDefault());
+        }
+
+        [Authorize]
+        [HttpGet]
         public async Task<IActionResult> ImportReceiveNo(string receiveNo, string? lotNo)
         {
             var result = await _receiveManagementService.GetJPReceivedByReceiveNoAsync(receiveNo, null, lotNo);
+            return Json(result);
+        }
+
+        [Authorize]
+        [HttpGet]
+        public async Task<IActionResult> ImportSPReceiveNo(string receiveNo, string? lotNo)
+        {
+            var result = await _receiveManagementService.GetSPReceivedByReceiveNoAsync(receiveNo, lotNo);
             return Json(result);
         }
 
@@ -89,7 +112,68 @@ namespace JPStockShowRoom.Controllers
         {
             var userId = User.GetUserId() ?? 0;
             await _receiveManagementService.UpdateLotItemsAsync(receiveNo, orderNos, receiveIds, userId);
+            await _receiveManagementService.UpdateJPReceiveHeaderStatusAsync(receiveNo);
             return Ok();
+        }
+
+        [Authorize]
+        [HttpPatch]
+        public async Task<IActionResult> UpdateSPLotItems([FromForm] string receiveNo, [FromForm] List<int> receiveIds)
+        {
+            var userId = User.GetUserId() ?? 0;
+            await _receiveManagementService.UpdateSPLotItemsAsync(receiveNo, receiveIds, userId);
+            await _receiveManagementService.UpdateSPReceiveHeaderStatusAsync(receiveNo);
+            return Ok();
+        }
+
+        [Authorize]
+        [HttpGet]
+        public async Task<IActionResult> CancelImportReceiveNo(string receiveNo, string? lotNo)
+        {
+            var result = await _receiveManagementService.GetJPReceivedByReceiveNoAsync(receiveNo, null, lotNo);
+            return Json(result);
+        }
+
+        [Authorize]
+        [HttpPatch]
+        public async Task<IActionResult> CancelUpdateLotItems([FromForm] string receiveNo, [FromForm] List<string> orderNos, [FromForm] List<int> receiveIds)
+        {
+            try
+            {
+                var userId = User.GetUserId() ?? 0;
+                await _receiveManagementService.CancelLotItemsAsync(receiveNo, orderNos, receiveIds, userId);
+                await _receiveManagementService.UpdateJPReceiveHeaderStatusAsync(receiveNo);
+                return Ok();
+            }
+            catch (InvalidOperationException ex)
+            {
+                return StatusCode(422, new { message = ex.Message });
+            }
+        }
+
+        [Authorize]
+        [HttpGet]
+        public async Task<IActionResult> CancelImportSPReceiveNo(string receiveNo, string? lotNo)
+        {
+            var result = await _receiveManagementService.GetSPReceivedByReceiveNoAsync(receiveNo, lotNo);
+            return Json(result);
+        }
+
+        [Authorize]
+        [HttpPatch]
+        public async Task<IActionResult> CancelUpdateSPLotItems([FromForm] string receiveNo, [FromForm] List<int> receiveIds)
+        {
+            try
+            {
+                var userId = User.GetUserId() ?? 0;
+                await _receiveManagementService.CancelSPLotItemsAsync(receiveNo, receiveIds, userId);
+                await _receiveManagementService.UpdateSPReceiveHeaderStatusAsync(receiveNo);
+                return Ok();
+            }
+            catch (InvalidOperationException ex)
+            {
+                return StatusCode(422, new { message = ex.Message });
+            }
         }
 
         #endregion
@@ -97,40 +181,127 @@ namespace JPStockShowRoom.Controllers
         #region Print Report
 
         [Authorize]
-        public IActionResult PrintReport()
+        public async Task<IActionResult> PrintReport()
         {
+            ViewBag.ProductTypes = await _stockManagementService.GetProductTypesAsync();
             return PartialView("~/Views/Partial/_PrintReport.cshtml");
         }
 
-        //[Authorize]
-        //[HttpPost]
-        //public async Task<IActionResult> WithdrawalReport([FromBody] WithdrawalReportFilterModel request)
-        //{
-        //    try
-        //    {
-        //        var all = await _stockManagementService.GetWithdrawalListAsync();
-        //        var filtered = all.AsEnumerable();
+        [Authorize]
+        [HttpPost]
+        public async Task<IActionResult> WithdrawalReport([FromBody] WithdrawalReportFilterModel request)
+        {
+            try
+            {
+                var all = await _stockManagementService.GetWithdrawalListAsync();
+                var filtered = all.AsEnumerable();
 
-        //        if (!string.IsNullOrWhiteSpace(request.Article))
-        //            filtered = filtered.Where(w =>
-        //                (w.Article ?? "").Contains(request.Article, StringComparison.OrdinalIgnoreCase) ||
-        //                (w.TempArticle ?? "").Contains(request.Article, StringComparison.OrdinalIgnoreCase));
+                if (!string.IsNullOrWhiteSpace(request.Article))
+                    filtered = filtered.Where(w =>
+                        (w.Article ?? "").Contains(request.Article, StringComparison.OrdinalIgnoreCase) ||
+                        (w.TempArticle ?? "").Contains(request.Article, StringComparison.OrdinalIgnoreCase));
 
-        //        if (!string.IsNullOrWhiteSpace(request.EDesArt))
-        //            filtered = filtered.Where(w => w.EDesArt == request.EDesArt);
+                if (!string.IsNullOrWhiteSpace(request.EDesArt))
+                    filtered = filtered.Where(w => w.EDesArt == request.EDesArt);
 
-        //        if (!string.IsNullOrWhiteSpace(request.Unit))
-        //            filtered = filtered.Where(w => w.Unit == request.Unit);
+                if (!string.IsNullOrWhiteSpace(request.Unit))
+                    filtered = filtered.Where(w => w.Unit == request.Unit);
 
-        //        var pdfBytes = _reportService.GenerateWithdrawalReport(filtered.ToList());
-        //        return File(pdfBytes, "application/pdf");
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        _logger.Error(ex, "WithdrawalReport failed: {Message}", ex.Message);
-        //        return StatusCode(500, new { message = ex.Message });
-        //    }
-        //}
+                if (!string.IsNullOrWhiteSpace(request.WithdrawalNo))
+                    filtered = filtered.Where(w => w.WithdrawalNo == request.WithdrawalNo);
+
+                var pdfBytes = _reportService.GenerateWithdrawalReport(filtered.ToList());
+                return File(pdfBytes, "application/pdf");
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "WithdrawalReport failed: {Message}", ex.Message);
+                return StatusCode(500, new { message = ex.Message });
+            }
+        }
+
+        [Authorize]
+        [HttpPost]
+        public async Task<IActionResult> BorrowReport([FromBody] BorrowReportFilterModel request)
+        {
+            try
+            {
+                List<BorrowModel> filtered;
+
+                if (!string.IsNullOrWhiteSpace(request.BorrowNo))
+                {
+                    filtered = await _stockManagementService.GetBorrowDetailsByNoAsync(request.BorrowNo);
+                }
+                else
+                {
+                    var all = await _stockManagementService.GetBorrowListAsync(null);
+                    var query = all.AsEnumerable();
+
+                    if (!string.IsNullOrWhiteSpace(request.Article))
+                        query = query.Where(w =>
+                            (w.Article ?? "").Contains(request.Article, StringComparison.OrdinalIgnoreCase));
+
+                    filtered = query.ToList();
+                }
+
+                var pdfBytes = _reportService.GenerateBorrowReport(filtered);
+                return File(pdfBytes, "application/pdf");
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "BorrowReport failed: {Message}", ex.Message);
+                return StatusCode(500, new { message = ex.Message });
+            }
+        }
+
+        [Authorize]
+        [HttpGet]
+        public async Task<IActionResult> GetBorrowHeaders(string? article, string? borrowNo, string? edesArt, bool? isReturned)
+        {
+            var result = await _stockManagementService.GetBorrowHeadersAsync(article, edesArt, borrowNo, isReturned);
+            return Json(result);
+        }
+
+        [Authorize]
+        [HttpGet]
+        public async Task<IActionResult> GetBorrowDetailsByNo(string borrowNo)
+        {
+            var result = await _stockManagementService.GetBorrowDetailsByNoAsync(borrowNo);
+            return Json(result);
+        }
+
+        [Authorize]
+        [HttpGet]
+        public async Task<IActionResult> GetPendingBorrowDetails(string? article, string? edesArt, bool? isReturned)
+        {
+            var result = await _stockManagementService.GetPendingBorrowDetailsAsync(article, edesArt, isReturned);
+            return Json(result);
+        }
+
+        [Authorize]
+        [HttpPost]
+        public async Task<IActionResult> CreateBorrowDocument([FromBody] int[] detailIds)
+        {
+            var userId = User.GetUserId() ?? 0;
+            var borrowNo = await _stockManagementService.CreateBorrowDocumentAsync(detailIds, userId);
+            return Json(new { borrowNo });
+        }
+
+        [Authorize]
+        [HttpPost]
+        public async Task<IActionResult> CancelPendingBorrow([FromBody] int id)
+        {
+            var userId = User.GetUserId() ?? 0;
+            try
+            {
+                await _stockManagementService.CancelPendingBorrowAsync(id, userId);
+                return Json(new { success = true });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
 
         [Authorize]
         [HttpPost]
@@ -138,13 +309,50 @@ namespace JPStockShowRoom.Controllers
         {
             try
             {
-                var result = await _stockManagementService.GetStockListAsync(request.Article, request.EDesArt, request.Unit);
-                var pdfBytes = _reportService.GenerateStockReport(result);
+                var result = await _stockManagementService.GetReportStockListAsync(request.Article, request.EDesArt, request.Unit);
+                var filtered = result.AsEnumerable();
+
+                if (request.RegistrationStatus.HasValue)
+                {
+                    if (request.RegistrationStatus == RegistrationStatus.Pending)
+                        filtered = filtered.Where(s => string.IsNullOrEmpty(s.Article));
+                    else if (request.RegistrationStatus == RegistrationStatus.Registered)
+                        filtered = filtered.Where(s => !string.IsNullOrEmpty(s.Article));
+                }
+
+                var pdfBytes = _reportService.GenerateStockReport(filtered.ToList());
                 return File(pdfBytes, "application/pdf");
             }
             catch (Exception ex)
             {
                 _logger.Error(ex, "StockReport failed: {Message}", ex.Message);
+                return StatusCode(500, new { message = ex.Message });
+            }
+        }
+
+        [Authorize]
+        [HttpPost]
+        public async Task<IActionResult> StockNoIMGReport([FromBody] StockReportFilterModel request)
+        {
+            try
+            {
+                var result = await _stockManagementService.GetReportStockListAsync(request.Article, request.EDesArt, request.Unit);
+                var filtered = result.AsEnumerable();
+
+                if (request.RegistrationStatus.HasValue)
+                {
+                    if (request.RegistrationStatus == RegistrationStatus.Pending)
+                        filtered = filtered.Where(s => string.IsNullOrEmpty(s.Article));
+                    else if (request.RegistrationStatus == RegistrationStatus.Registered)
+                        filtered = filtered.Where(s => !string.IsNullOrEmpty(s.Article));
+                }
+
+                var pdfBytes = _reportService.GenerateStockNoIMGReport(filtered.ToList());
+                return File(pdfBytes, "application/pdf");
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "StockNoIMGReport failed: {Message}", ex.Message);
                 return StatusCode(500, new { message = ex.Message });
             }
         }
@@ -156,18 +364,28 @@ namespace JPStockShowRoom.Controllers
         [Authorize]
         public async Task<IActionResult> StockManagement()
         {
+            var convertedItems = await _receiveManagementService.ConvertZArticlesAsync();
             await _stockManagementService.SyncArticlesAsync();
             var articles = await _stockManagementService.GetArticleListAsync();
             ViewBag.Articles = articles;
             ViewBag.BreakDescriptions = await _stockManagementService.GetBreakDescriptionsAsync();
+            ViewBag.ProductTypes = await _stockManagementService.GetProductTypesAsync();
+            ViewBag.ConvertedItems = convertedItems;
             return PartialView("~/Views/Partial/_StockManagement.cshtml");
         }
 
         [Authorize]
         [HttpGet]
-        public async Task<IActionResult> GetStockList(string? article, string? edesArt, string? unit)
+        public async Task<IActionResult> GetStockList(string? article, string? edesArt, int? registrationStatus)
         {
-            var result = await _stockManagementService.GetStockListAsync(article, edesArt, unit);
+            var result = await _stockManagementService.GetStockListAsync(article, edesArt, null);
+            if (registrationStatus.HasValue)
+            {
+                if ((RegistrationStatus)registrationStatus == RegistrationStatus.Pending)
+                    result = result.Where(s => string.IsNullOrEmpty(s.Article)).ToList();
+                else if ((RegistrationStatus)registrationStatus == RegistrationStatus.Registered)
+                    result = result.Where(s => !string.IsNullOrEmpty(s.Article)).ToList();
+            }
             return Json(result);
         }
 
@@ -212,7 +430,7 @@ namespace JPStockShowRoom.Controllers
             {
                 var userId = User.GetUserId() ?? 0;
                 var items = System.Text.Json.JsonSerializer.Deserialize<Dictionary<int, decimal>>(itemsJson);
-                
+
                 if (items == null || !items.Any())
                 {
                     return BadRequest(new { message = "ไม่พบรายการสินค้า" });
@@ -237,11 +455,11 @@ namespace JPStockShowRoom.Controllers
 
         [Authorize]
         [HttpPost]
-        public async Task<IActionResult> BorrowFromTray(int trayItemId, decimal borrowQty)
+        public async Task<IActionResult> BorrowFromStock(int stockId, decimal borrowQty)
         {
             var userId = User.GetUserId() ?? 0;
-            await _stockManagementService.BorrowFromTrayAsync(trayItemId, borrowQty, userId);
-            return Ok(new { message = "ยืมสินค้าจากถาดเรียบร้อย" });
+            await _stockManagementService.BorrowFromStockAsync(stockId, borrowQty, userId);
+            return Ok(new { message = "ยืมสินค้าเรียบร้อย" });
         }
 
         [Authorize]
@@ -255,18 +473,26 @@ namespace JPStockShowRoom.Controllers
 
         [Authorize]
         [HttpPatch]
-        public async Task<IActionResult> ReturnToTray(int trayBorrowId)
+        public async Task<IActionResult> ReturnBorrow(int borrowDetailId)
         {
             var userId = User.GetUserId() ?? 0;
-            await _stockManagementService.ReturnToTrayAsync(trayBorrowId, userId);
-            return Ok(new { message = "คืนสินค้ากลับถาดเรียบร้อย" });
+            await _stockManagementService.ReturnBorrowAsync(borrowDetailId, userId);
+            return Ok(new { message = "คืนสินค้าเรียบร้อย" });
         }
 
         [Authorize]
         [HttpGet]
-        public async Task<IActionResult> GetBorrowList(int? trayId)
+        public async Task<IActionResult> GetBorrowList(int? stockId)
         {
-            var result = await _stockManagementService.GetBorrowListAsync(trayId);
+            var result = await _stockManagementService.GetBorrowListAsync(stockId);
+            return Json(result);
+        }
+
+        [Authorize]
+        [HttpGet]
+        public async Task<IActionResult> GetBorrowsByStockId(int stockId)
+        {
+            var result = await _stockManagementService.GetBorrowsByStockIdAsync(stockId);
             return Json(result);
         }
 
@@ -284,6 +510,63 @@ namespace JPStockShowRoom.Controllers
         public async Task<IActionResult> GetWithdrawalList()
         {
             var result = await _stockManagementService.GetWithdrawalListAsync();
+            return Json(result);
+        }
+
+        [Authorize]
+        [HttpGet]
+        public async Task<IActionResult> GetWithdrawalHeaders(string? article, string? withdrawalNo, string? edesArt)
+        {
+            var result = await _stockManagementService.GetWithdrawalHeadersAsync(article, edesArt, withdrawalNo);
+            return Json(result);
+        }
+
+        [Authorize]
+        [HttpGet]
+        public async Task<IActionResult> GetWithdrawalDetailsByNo(string withdrawalNo)
+        {
+            var result = await _stockManagementService.GetWithdrawalDetailsByNoAsync(withdrawalNo);
+            return Json(result);
+        }
+
+        [Authorize]
+        [HttpGet]
+        public async Task<IActionResult> GetPendingWithdrawalDetails(string? article, string? edesArt)
+        {
+            var result = await _stockManagementService.GetPendingWithdrawalDetailsAsync(article, edesArt);
+            return Json(result);
+        }
+
+        [Authorize]
+        [HttpPost]
+        public async Task<IActionResult> CreateWithdrawalDocument([FromBody] int[] detailIds)
+        {
+            var userId = User.GetUserId() ?? 0;
+            var withdrawalNo = await _stockManagementService.CreateWithdrawalDocumentAsync(detailIds, userId);
+            return Json(new { withdrawalNo });
+        }
+
+        [Authorize]
+        [HttpPost]
+        public async Task<IActionResult> CancelPendingWithdrawal([FromBody] int id)
+        {
+            var userId = User.GetUserId() ?? 0;
+            try
+            {
+                await _stockManagementService.CancelPendingWithdrawalAsync(id, userId);
+                return Json(new { success = true });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        [Authorize]
+        [HttpGet]
+        public async Task<IActionResult> SearchAddStockItems(string? article, string? barcode)
+        {
+            var result = await _stockManagementService.SearchAddStockItems(article ?? string.Empty, barcode ?? string.Empty);
             return Json(result);
         }
 
@@ -336,8 +619,8 @@ namespace JPStockShowRoom.Controllers
         {
             try
             {
-                await _stockManagementService.AddBreakAsync(receivedId, breakQty, breakDes);
-                return Ok(new { message = "เพิ่มรายการชำรุดเรียบร้อย" });
+                var result = await _stockManagementService.AddBreakAsync(receivedId, breakQty, breakDes);
+                return Ok(result);
             }
             catch (Exception ex)
             {
@@ -366,14 +649,108 @@ namespace JPStockShowRoom.Controllers
         [Authorize]
         public async Task<IActionResult> BreakReport([FromBody] BreakAndLostFilterModel breakAndLostFilterModel)
         {
-            List<LostAndRepairModel> result = await _stockManagementService.GetBreakAsync(breakAndLostFilterModel);
-            byte[] pdfBytes = _reportService.GenerateBreakReport(result);
-            await _stockManagementService.PintedBreakReport(breakAndLostFilterModel.BreakIDs);
+            try
+            {
+                List<LostAndRepairModel> result;
+                if (!string.IsNullOrWhiteSpace(breakAndLostFilterModel.BreakNo))
+                {
+                    result = await _stockManagementService.GetBreakDetailsByNoAsync(breakAndLostFilterModel.BreakNo);
+                }
+                else
+                {
+                    result = await _stockManagementService.GetBreakAsync(breakAndLostFilterModel);
+                    await _stockManagementService.PintedBreakReport(breakAndLostFilterModel.BreakIDs);
+                }
+                byte[] pdfBytes = _reportService.GenerateBreakReport(result);
+                string contentDisposition = $"inline; filename=BreakReport_{DateTime.Now:yyyyMMdd}.pdf";
+                Response.Headers.Append("Content-Disposition", contentDisposition);
+                return File(pdfBytes, "application/pdf");
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "BreakReport failed: {Message}", ex.Message);
+                return StatusCode(500, new { message = ex.Message });
+            }
+        }
 
-            string contentDisposition = $"inline; filename=BreakReport_{DateTime.Now:yyyyMMdd}.pdf";
-            Response.Headers.Append("Content-Disposition", contentDisposition);
+        [Authorize]
+        [HttpGet]
+        public async Task<IActionResult> GetBreakHeaders(string? article, string? breakNo, string? edesArt)
+        {
+            var result = await _stockManagementService.GetBreakHeadersAsync(article, edesArt, breakNo);
+            return Json(result);
+        }
 
-            return File(pdfBytes, "application/pdf");
+        [Authorize]
+        [HttpGet]
+        public async Task<IActionResult> GetBreakDetailsByNo(string breakNo)
+        {
+            var result = await _stockManagementService.GetBreakDetailsByNoAsync(breakNo);
+            return Json(result);
+        }
+
+        [Authorize]
+        [HttpGet]
+        public async Task<IActionResult> GetPendingBreakDetails(string? article, string? edesArt)
+        {
+            var result = await _stockManagementService.GetPendingBreakDetailsAsync(article, edesArt);
+            return Json(result);
+        }
+
+        [Authorize]
+        [HttpPost]
+        public async Task<IActionResult> CreateBreakDocument([FromBody] int[] detailIds)
+        {
+            try
+            {
+                var userId = int.Parse(User.FindFirst("UserID")?.Value ?? "0");
+                var breakNo = await _stockManagementService.CreateBreakDocumentAsync(detailIds, userId);
+                return Json(new { breakNo });
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "CreateBreakDocument failed: {Message}", ex.Message);
+                return StatusCode(500, new { message = ex.Message });
+            }
+        }
+
+        #endregion
+
+        #region Permission Management
+
+        [Authorize]
+        public async Task<IActionResult> PermissionManagement()
+        {
+            var users = await _permissionManagement.GetUserAsync();
+            return PartialView("~/Views/Partial/_PermissionManagement.cshtml", users);
+        }
+
+        [Authorize]
+        [HttpGet]
+        public async Task<IActionResult> GetUserPermission(int userId)
+        {
+            var permissions = await _permissionManagement.GetPermissionAsync();
+            var mapping = await _permissionManagement.GetMappingPermissionAsync(userId);
+            var enabledIds = mapping.Where(m => m.IsActive).Select(m => m.PermissionId).ToHashSet();
+
+            var result = permissions.Where(p => p.IsActive).Select(p => new
+            {
+                permissionId = p.PermissionId,
+                name = p.Name,
+                enabled = enabledIds.Contains(p.PermissionId)
+            });
+
+            return Json(result);
+        }
+
+        [Authorize]
+        [HttpPost]
+        public async Task<IActionResult> UpdateUserPermission([FromBody] UpdatePermissionModel model)
+        {
+            var result = await _permissionManagement.UpdatePermissionAsync(model);
+            if (!result.IsSuccess)
+                return BadRequest(new { message = result.Message });
+            return Ok();
         }
 
         #endregion

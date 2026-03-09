@@ -1,19 +1,19 @@
-﻿using JPStockShowRoom.Data.SPDbContext;
-using JPStockShowRoom.Data.SPDbContext.Entities;
+﻿using JPStockShowRoom.Data.SWDbContext;
+using JPStockShowRoom.Data.SWDbContext.Entities;
 using JPStockShowRoom.Models;
 using JPStockShowRoom.Services.Interface;
 using Microsoft.EntityFrameworkCore;
 
 namespace JPStockShowRoom.Services.Implement
 {
-    public class PermissionManagement(SPDbContext sPDbContext, IPISService pISService) : IPermissionManagement
+    public class PermissionManagement(SWDbContext sWDbContext, IPISService pISService) : IPermissionManagement
     {
-        private readonly SPDbContext _sPDbContext = sPDbContext;
+        private readonly SWDbContext _sWDbContext = sWDbContext;
         private readonly IPISService _pISService = pISService;
 
         public async Task<List<Permission>> GetPermissionAsync()
         {
-            var permissions = await _sPDbContext.Permission.ToListAsync();
+            var permissions = await _sWDbContext.Permission.ToListAsync();
             return permissions;
         }
 
@@ -22,7 +22,7 @@ namespace JPStockShowRoom.Services.Implement
             var users = await _pISService.GetUser(new ReqUserModel());
 
             var userPermissions = from user in users
-                                  join up in _sPDbContext.MappingPermission on user.UserID equals up.UserId into userPerms
+                                  join up in _sWDbContext.MappingPermission on user.UserID equals up.UserId into userPerms
                                   from up in userPerms.DefaultIfEmpty()
                                   group user by new
                                   {
@@ -63,7 +63,7 @@ namespace JPStockShowRoom.Services.Implement
 
         public async Task<List<MappingPermission>> GetMappingPermissionAsync(int UserID)
         {
-            var mappingPermissions = await _sPDbContext.MappingPermission.Where(x => x.UserId == UserID).ToListAsync();
+            var mappingPermissions = await _sWDbContext.MappingPermission.Where(x => x.UserId == UserID).ToListAsync();
             return mappingPermissions;
         }
 
@@ -80,7 +80,7 @@ namespace JPStockShowRoom.Services.Implement
             var userId = model.UserId;
             var selected = model.PermissionIds ?? new List<int>();
 
-            var existing = await _sPDbContext.MappingPermission
+            var existing = await _sWDbContext.MappingPermission
                 .Where(x => x.UserId == userId)
                 .ToListAsync();
 
@@ -95,7 +95,7 @@ namespace JPStockShowRoom.Services.Implement
                 }
                 else
                 {
-                    _sPDbContext.MappingPermission.Add(new MappingPermission
+                    _sWDbContext.MappingPermission.Add(new MappingPermission
                     {
                         UserId = userId,
                         PermissionId = pid,
@@ -115,7 +115,7 @@ namespace JPStockShowRoom.Services.Implement
                 }
             }
 
-            await _sPDbContext.SaveChangesAsync();
+            await _sWDbContext.SaveChangesAsync();
 
             return new BaseResponseModel
             {

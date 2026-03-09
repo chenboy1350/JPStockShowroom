@@ -6,14 +6,18 @@ using Microsoft.EntityFrameworkCore;
 
 namespace JPStockShowRoom.Data.SWDbContext.Entities;
 
-public partial class TrayBorrow
+public partial class BorrowDetail
 {
     [Key]
-    [Column("TrayBorrowID")]
-    public int TrayBorrowId { get; set; }
+    [Column("BorrowDetailID")]
+    public int BorrowDetailId { get; set; }
 
-    [Column("TrayItemID")]
-    public int TrayItemId { get; set; }
+    [Column("StockID")]
+    public int StockId { get; set; }
+
+    [StringLength(50)]
+    [Unicode(false)]
+    public string? BorrowNo { get; set; }
 
     [Column(TypeName = "numeric(18, 1)")]
     public decimal BorrowQty { get; set; }
@@ -34,8 +38,4 @@ public partial class TrayBorrow
 
     [Column(TypeName = "datetime")]
     public DateTime? UpdateDate { get; set; }
-
-    [ForeignKey("TrayItemId")]
-    [InverseProperty("TrayBorrow")]
-    public virtual TrayItem TrayItem { get; set; } = null!;
 }

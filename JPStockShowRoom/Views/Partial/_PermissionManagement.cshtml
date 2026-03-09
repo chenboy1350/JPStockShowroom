@@ -17,12 +17,12 @@
                                     <div class="col-md-6">
                                         <div class="form-group">
                                             <label>ชื่อผู้ใช้</label>
-                                            <input type="text" id="txt" class="form-control" placeholder="กรอก Username">
+                                            <input type="text" id="txtSearchUsername" class="form-control" placeholder="กรอก Username">
                                         </div>
                                     </div>
                                 </div>
-                                <button class="btn btn-secondary" onclick="">Clear</button>
-                                <button class="btn btn-primary" onclick="">ค้นหา</button>
+                                <button class="btn btn-secondary" onclick="clearPermissionSearch()">Clear</button>
+                                <button class="btn btn-primary" onclick="searchPermission()">ค้นหา</button>
                             </div>
                         </div>
                     </div>
@@ -51,10 +51,12 @@
                         </tr>
                     </thead>
                     <tbody id="userTableBody">
+                        @{ int rowIdx = 1; }
                         @foreach (var item in Model)
                         {
-                            <tr>
-                                <td class="text-start">#</td>
+                            <tr data-username="@item.Username.ToLower()">
+                                <td class="text-start">@rowIdx</td>
+                                @{ rowIdx++; }
                                 <td class="text-start">@item.Username</td>
                                 <td class="text-start">@item.FirstName @item.LastName (@item.NickName)</td>
                                 <td class="text-start">@item.DepartmentName</td>

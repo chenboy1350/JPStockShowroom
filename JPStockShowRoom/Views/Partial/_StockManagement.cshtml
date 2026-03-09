@@ -21,25 +21,22 @@
                                     <div class="col-md-3">
                                         <div class="form-group">
                                             <label>ประเภทสินค้า (EDesArt)</label>
-                                            <select id="ddlEDesArt" class="form-control" onchange="onFilterDDLChange()">
+                                            <select id="ddlEDesArt" class="form-control" style="width:100%">
                                                 <option value="">-- ทั้งหมด --</option>
-                                                <option value="RING">RING</option>
-                                                <option value="EARRING">EARRING</option>
-                                                <option value="PENDANT">PENDANT</option>
-                                                <option value="NECKLACE">NECKLACE</option>
-                                                <option value="BRACELET">BRACELET</option>
-                                                <option value="STUD">PIERCING</option>
+                                                @foreach (var pt in (ViewBag.ProductTypes as List<string> ?? new List<string>()))
+                                                {
+                                                    <option value="@pt">@pt</option>
+                                                }
                                             </select>
                                         </div>
                                     </div>
                                     <div class="col-md-2">
                                         <div class="form-group">
-                                            <label>ประเภทงาน (Unit)</label>
-                                            <select id="ddlUnit" class="form-control" onchange="onFilterDDLChange()">
+                                            <label>สถานะการลงทะเบียน</label>
+                                            <select id="ddlUnit" class="form-control" style="width:100%">
                                                 <option value="">-- ทั้งหมด --</option>
-                                                <option value="PR">PR</option>
-                                                <option value="PC">PC</option>
-                                                <option value="SET">SET</option>
+                                                <option value="1">งาน Z ที่รอลงทะเบียน</option>
+                                                <option value="2">ลงทะเบียนแล้ว</option>
                                             </select>
                                         </div>
                                     </div>
@@ -123,6 +120,9 @@
                         </button>
                         <button class="btn btn-danger btn-sm shadow-sm" onclick="showModalBreak(null)" title="รายการส่งซ่อมทั้งหมด">
                             <i class="fas fa-hammer"></i> ส่งซ่อม
+                        </button>
+                        <button class="btn btn-danger btn-sm shadow-sm" onclick="showModalAddStock(null)" title="เพิ่มสินค้าเข้า stock โดยผู้ดูแลระบบ">
+                            <i class="fas fa-hammer"></i> เพิ่มสินค้า
                         </button>
                     </div>
                     <button class="btn btn-primary btn-sm ml-2 shadow-sm d-none" id="btnShowTray" onclick="toggleTrayPanel()" title="แสดง Tray">
@@ -375,20 +375,20 @@
                 <div class="card-body table-responsive" style="height:50vh; padding: 0px !important;">
                     <table class="table table-head-fixed text-nowrap table-packed-custom">
                         <thead>
-                            <tr>
-                                <th></th>
-                                <th class="text-center">Article</th>
-                                <th>รายละเอียด</th>
-                                <th class="text-center">เพชร/พลอย</th>
-                                <th class="text-center">ถาด</th>
-                                <th class="text-end">จำนวน</th>
-                                <th>วันที่ยืม</th>
-                                <th class="text-center"></th>
-                            </tr>
+                                <tr>
+                                    <th class="text-center">IMG</th>
+                                    <th class="text-center">Article</th>
+                                    <th class="text-center">FN</th>
+                                    <th class="text-center">GEM</th>
+                                    <th class="text-end">QTY</th>
+                                    <th class="text-center">DATE</th>
+                                    <th class="text-center">TRAY</th>
+                                    <th class="text-center"></th>
+                                </tr>
                         </thead>
                         <tbody id="tbl-borrow-body">
                             <tr>
-                                <td colspan="9" class="text-center text-muted">กำลังโหลด...</td>
+                                <td colspan="8" class="text-center text-muted">กำลังโหลด...</td>
                             </tr>
                         </tbody>
                     </table>
@@ -402,11 +402,51 @@
 </div>
 
 
+<div class="modal fade" id="modal-return-borrow-stock">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title"><i class="fas fa-undo"></i> รายการยืมที่ยังไม่คืน</h4>
+                <button type="button" class="close" onclick="$('#modal-return-borrow-stock').modal('hide')" aria-label="Close">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="card-body table-responsive" style="height:50vh; padding: 0px !important;">
+                    <table class="table table-head-fixed text-nowrap table-packed-custom">
+                        <thead>
+                            <tr>
+                                <th class="text-center">IMG</th>
+                                <th class="text-center">Article</th>
+                                <th class="text-center">FN</th>
+                                <th class="text-center">GEM</th>
+                                <th class="text-end">QTY</th>
+                                <th class="text-center">DATE</th>
+                                <th class="text-center">TRAY</th>
+                                <th class="text-center"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbl-return-borrow-stock-body">
+                            <tr>
+                                <td colspan="8" class="text-center text-muted">กำลังโหลด...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer justify-content-end">
+                <button type="button" class="btn btn-default" onclick="$('#modal-return-borrow-stock').modal('hide')">ปิด</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
 <div class="modal fade" id="modal-withdrawal-history">
     <div class="modal-dialog modal-xl">
         <div class="modal-content">
             <div class="modal-header">
-                <h4 class="modal-title"><i class="fas fa-tools"></i> ประวัติการเบิกออก (ไม่คืน)</h4>
+                <h4 class="modal-title"><i class="fas fa-tools"></i> ประวัติการเบิกออก</h4>
                 <button type="button" class="close" onclick="$('#modal-withdrawal-history').modal('hide')" aria-label="Close">
                     <span>&times;</span>
                 </button>
@@ -418,6 +458,7 @@
                             <tr>
                                 <th class="text-center">#</th>
                                 <th class="text-center">Article</th>
+                                <th class="text-center">Doc No</th>
                                 <th class="text-center">OrderNo</th>
                                 <th class="text-center">EDesFn</th>
                                 <th class="text-center">ListGem</th>
@@ -428,7 +469,7 @@
                         </thead>
                         <tbody id="tbl-withdrawal-body">
                             <tr>
-                                <td colspan="8" class="text-center text-muted">กำลังโหลด...</td>
+                                <td colspan="9" class="text-center text-muted">กำลังโหลด...</td>
                             </tr>
                         </tbody>
                     </table>
@@ -458,32 +499,21 @@
                 <div class="card">
                     <div class="card-header">
                         <h3 class="card-title"></h3>
-
-                        <div class="card-tools">
-                            <button class="btn btn-default" id="btnAddBreakList" onclick="showModalAddBreak()"><i class="fas fa-plus"></i> เพิ่มรายการ</button>
-                            <button class="btn btn-default" id="btnPrintBreakReport" onclick="printBreakToPDF()"><i class="fas fa-print"></i></button>
-                        </div>
                     </div>
                     <!-- /.card-header -->
                     <div class="card-body table-responsive" style="height: 600px; padding: 0px !important;">
                         <table class="table table-head-fixed text-nowrap table-packed-custom" style="overflow: auto !important;">
                             <thead>
                                 <tr>
-                                    <th class="text-center">รูป</th>
+                                    <th class="text-center">IMG</th>
                                     <th class="text-center">Article</th>
+                                    <th class="text-center">Doc No</th>
                                     <th class="text-center">OrderNo</th>
                                     <th class="text-center">EDesFn</th>
-                                    <th class="text-center">อาการ</th>
                                     <th class="text-center">ListGem</th>
                                     <th class="text-center">Date</th>
-                                    <th class="text-end">จำนวน</th>
-                                    <th class="text-center">พิมพ์</th>
-                                    <th>
-                                        <div class="chk-wrapper">
-                                            <input type="checkbox" id="chkSelectAllBreak" class="custom-checkbox">
-                                            <label for="chkSelectAllBreak" class="ms-2 mb-0">เลือก</label>
-                                        </div>
-                                    </th>
+                                    <th class="text-end">QTY</th>
+                                    <th class="text-center">REMARK</th>
                                 </tr>
                             </thead>
                             <tbody id="tbl-body-break">
@@ -537,6 +567,156 @@
     </div>
 </div>
 
+@{
+    var convertedItems = ViewBag.ConvertedItems as List<JPStockShowRoom.Models.ConvertedArticleModel> ?? new List<JPStockShowRoom.Models.ConvertedArticleModel>();
+}
+
+@if (convertedItems.Count > 0)
+{
+    <div class="modal fade" id="modal-z-converted" tabindex="-1">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h4 class="modal-title">
+                        <i class="fas fa-sync-alt me-2"></i>
+                        อัพเดทรหัสสินค้า Z เสร็จสิ้น
+                    </h4>
+                    <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+                        <span>&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-success">
+                        <i class="fas fa-check-circle me-1"></i>
+                        พบและอัพเดท <strong>@convertedItems.Count รายการ</strong> ที่ลงทะเบียนแล้ว จาก Z article เป็น article จริงเรียบร้อย
+                    </div>
+                    <div class="table-responsive" style="max-height: 55vh; overflow-y: auto;">
+                        <table class="table table-sm table-bordered table-hover text-nowrap">
+                            <thead class="thead-light">
+                                <tr>
+                                    <th class="text-center">#</th>
+                                    <th>Z Article</th>
+                                    <th>Article จริง</th>
+                                    <th>ประเภท</th>
+                                    <th>Barcode เก่า</th>
+                                    <th>Barcode ใหม่</th>
+                                    <th>Order No</th>
+                                    <th>Lot No</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @for (int i = 0; i < convertedItems.Count; i++)
+                                {
+                                    var item = convertedItems[i];
+                                    <tr>
+                                        <td class="text-center">@(i + 1)</td>
+                                        <td><span class="badge badge-warning">@item.ZArticle</span></td>
+                                        <td><strong>@item.RealArticle</strong></td>
+                                        <td>@item.EdesArt</td>
+                                        <td class="text-muted"><small>@item.OldBarcode</small></td>
+                                        <td><code>@item.NewBarcode</code></td>
+                                        <td>@item.OrderNo</td>
+                                        <td>@item.LotNo</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-success" data-dismiss="modal">
+                        <i class="fas fa-check me-1"></i> รับทราบ
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<div class="modal fade" id="modal-add-stock">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title"><i class="fas fa-plus-circle mr-2"></i>เพิ่มสินค้าเข้า Stock</h4>
+                <button type="button" class="close" onclick="$('#modal-add-stock').modal('hide')" aria-label="Close">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-5">
+                        <div class="form-group">
+                            <label>Article</label>
+                            <input type="text" id="txtAddStockArticle" class="form-control" placeholder="กรอก Article"
+                                   onkeydown="if(event.key==='Enter') searchAddStockArticle()">
+                        </div>
+                    </div>
+                    <div class="col-md-5">
+                        <div class="form-group">
+                            <label>Barcode</label>
+                            <input type="text" id="txtAddStockBarcode" class="form-control" placeholder="กรอก Barcode"
+                                   onkeydown="if(event.key==='Enter') searchAddStockArticle()">
+                        </div>
+                    </div>
+                    <div class="col-md-2 d-flex align-items-end">
+                        <div class="form-group d-flex gap-1">
+                            <button class="btn btn-primary" type="button" onclick="searchAddStockArticle()" title="ค้นหา">
+                                <i class="fas fa-search"></i>
+                            </button>
+                            <button class="btn btn-secondary" type="button" onclick="clearAddStockSearch()" title="ล้างค่า">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>เลือกรายการ <span class="text-danger">*</span></label>
+                    <select id="ddlAddStockBarcode" class="form-control" style="width:100%" onchange="onAddStockBarcodeChange()">
+                        <option value="">-- ค้นหาก่อน --</option>
+                    </select>
+                </div>
+
+                <div id="add-stock-item-info" style="display:none">
+                    <div class="card bg-light mb-3">
+                        <div class="card-body py-2 px-3">
+                            <div class="row text-sm">
+                                <div class="col-6">
+                                    <small class="text-muted">Article</small>
+                                    <div id="info-add-stock-article" class="font-weight-bold"></div>
+                                </div>
+                                <div class="col-6">
+                                    <small class="text-muted">EdesArt</small>
+                                    <div id="info-add-stock-edesart"></div>
+                                </div>
+                                <div class="col-6 mt-1">
+                                    <small class="text-muted">EDesFn</small>
+                                    <div id="info-add-stock-edesfn"></div>
+                                </div>
+                                <div class="col-6 mt-1">
+                                    <small class="text-muted">ListGem</small>
+                                    <div id="info-add-stock-listgem"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>จำนวนที่เพิ่ม <span class="text-danger">*</span></label>
+                    <input type="number" id="txtAddStockQty" class="form-control" min="0.5" step="0.5" value="" placeholder="0.0" style="max-width:180px">
+                </div>
+            </div>
+            <div class="modal-footer justify-content-end">
+                <button type="button" class="btn btn-success" id="btnConfirmAddStock" onclick="confirmAddStock()">
+                    <i class="fas fa-save mr-1"></i>บันทึก
+                </button>
+                <button type="button" class="btn btn-default" onclick="$('#modal-add-stock').modal('hide')">ปิด</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div id="page-title" data-title="จัดการ Stock"></div>
 
 <script>
@@ -549,13 +729,41 @@
         _allArticles = @Html.Raw(articlesJson);
     }
 
+    ['#ddlEDesArt', '#ddlUnit'].forEach(function (id) {
+        if ($(id).hasClass('select2-hidden-accessible')) $(id).select2('destroy');
+        $(id).select2({ placeholder: '-- ทั้งหมด --', allowClear: true, width: '100%' })
+             .on('change', function () { onFilterDDLChange(); });
+    });
+
+    if (typeof switchStockTab === 'function') switchStockTab('general');
+    if (typeof _selectedArticle !== 'undefined') _selectedArticle = null;
+    $('#txtArticleSearch').val('');
+    $('#ddlEDesArt').val('').trigger('change');
+    $('#ddlUnit').val('').trigger('change');
+    if (typeof renderArticlePanel === 'function') renderArticlePanel(_allArticles);
     if (typeof findStock === 'function') findStock();
     if (typeof loadTrayList === 'function') loadTrayList();
+
+    @if (convertedItems.Count > 0)
+    {
+        <text>
+    setTimeout(() => $('#modal-z-converted').modal('show'), 600);
+        </text>
+    }
 
     function printStockReportCurrent() {
         const article = ($('#txtArticleSearch').val() || '').trim() || null;
         const edesArt = $('#ddlEDesArt').val() || null;
-        const unit = $('#ddlUnit').val() || null;
-        printStockToPDF(article, edesArt, unit);
+        const registrationStatusRaw = $('#ddlUnit').val();
+        const registrationStatus = registrationStatusRaw ? parseInt(registrationStatusRaw) : null;
+        printStockToPDF(article, edesArt, null, registrationStatus);
+    }
+
+    function printStockNoIMGCurrent() {
+        const article = ($('#txtArticleSearch').val() || '').trim() || null;
+        const edesArt = $('#ddlEDesArt').val() || null;
+        const registrationStatusRaw = $('#ddlUnit').val();
+        const registrationStatus = registrationStatusRaw ? parseInt(registrationStatusRaw) : null;
+        printStockNoIMGToPDF(article, edesArt, null, registrationStatus);
     }
 </script>

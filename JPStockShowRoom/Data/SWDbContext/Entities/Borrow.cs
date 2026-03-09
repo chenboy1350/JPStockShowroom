@@ -6,12 +6,12 @@ using Microsoft.EntityFrameworkCore;
 
 namespace JPStockShowRoom.Data.SWDbContext.Entities;
 
-public partial class Withdrawal
+public partial class Borrow
 {
     [Key]
     [StringLength(50)]
     [Unicode(false)]
-    public string WithdrawalNo { get; set; } = null!;
+    public string BorrowNo { get; set; } = null!;
 
     public bool IsActive { get; set; }
 

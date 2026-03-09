@@ -1,4 +1,4 @@
-﻿using JPStockShowRoom.Data.SPDbContext.Entities;
+﻿using JPStockShowRoom.Data.SWDbContext.Entities;
 using JPStockShowRoom.Models;
 
 namespace JPStockShowRoom.Services.Interface

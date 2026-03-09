@@ -1,61 +1,466 @@
 <div id="page-title" data-title="พิมพ์รายงาน"></div>
 
 <div class="container-fluid">
-    <div class="card">
+    <div class="card d-flex collapsed-card">
         <div class="card-header">
             <h3 class="card-title mb-0">
                 <i class="fas fa-print mr-2"></i>พิมพ์รายงานการเบิก
             </h3>
+            <div class="card-tools">
+                <button type="button" class="btn btn-tool" data-card-widget="collapse">
+                    <i class="fas fa-minus"></i>
+                </button>
+            </div>
         </div>
-        <div class="card-body">
+        <div class="card-body pb-0">
             <div class="row">
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <div class="form-group">
                         <label for="txtWithdrawalArticle">Article</label>
                         <input type="text" id="txtWithdrawalArticle" class="form-control" placeholder="กรอก Article">
                     </div>
                 </div>
+                <div class="col-md-2">
+                    <div class="form-group">
+                        <label for="txtWithdrawalNo">เลขที่ใบเบิก</label>
+                        <input type="text" id="txtWithdrawalNo" class="form-control" placeholder="เลขที่ใบเบิก">
+                    </div>
+                </div>
                 <div class="col-md-3">
                     <div class="form-group">
                         <label for="ddlWithdrawalEDesArt">ประเภทสินค้า (EDesArt)</label>
-                        <select id="ddlWithdrawalEDesArt" class="form-control">
+                        <select id="ddlWithdrawalEDesArt" class="form-control" style="width:100%">
                             <option value="">-- ทั้งหมด --</option>
-                            <option value="RING">RING</option>
-                            <option value="EARRING">EARRING</option>
-                            <option value="PENDANT">PENDANT</option>
-                            <option value="NECKLACE">NECKLACE</option>
-                            <option value="BRACELET">BRACELET</option>
-                            <option value="STUD">PIERCING</option>
+                            @foreach (var pt in (ViewBag.ProductTypes as List<string> ?? new List<string>()))
+                            {
+                                <option value="@pt">@pt</option>
+                            }
                         </select>
                     </div>
                 </div>
-                <div class="col-md-2">
+                <div class="col-md-2 d-flex align-items-end">
                     <div class="form-group">
-                        <label for="ddlWithdrawalUnit">ประเภทงาน (Unit)</label>
-                        <select id="ddlWithdrawalUnit" class="form-control">
-                            <option value="">-- ทั้งหมด --</option>
-                            <option value="PR">PR</option>
-                            <option value="PC">PC</option>
-                            <option value="SET">SET</option>
-                        </select>
+                        <button type="button" class="btn btn-primary mr-2" onclick="searchWithdrawal()">
+                            <i class="fas fa-search mr-1"></i>ค้นหา
+                        </button>
+                        <button type="button" class="btn btn-secondary" onclick="clearWithdrawalFilter()">
+                            <i class="fas fa-times mr-1"></i>ล้าง
+                        </button>
                     </div>
                 </div>
-                <div class="col-md-3 d-flex align-items-end">
-                    <button type="button" class="btn btn-primary" onclick="printWithdrawalToPDF()">
-                        <i class="fas fa-print mr-1"></i>พิมพ์รายงาน
+            </div>
+            <div class="d-flex align-items-end">
+                <ul class="nav nav-tabs flex-grow-1" id="tabs-withdrawal" role="tablist">
+                    <li class="nav-item">
+                        <a class="nav-link active" id="tab-withdrawal-headers-link" href="#" role="tab" onclick="switchWithdrawalTab('headers')">
+                            <i class="fas fa-list mr-1"></i>ใบเบิก
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" id="tab-withdrawal-pending-link" href="#" role="tab" onclick="switchWithdrawalTab('pending')">
+                            <i class="fas fa-clock mr-1"></i>รอสร้างใบเบิก
+                            <span class="badge badge-warning ml-1" id="badge-pending-count" style="display:none"></span>
+                        </a>
+                    </li>
+                </ul>
+                <div id="toolbar-create-withdrawal" class="ml-2 pb-1" style="display:none">
+                    <button class="btn btn-success btn-sm" onclick="createWithdrawalDocument()">
+                        <i class="fas fa-file-alt mr-1"></i>สร้างใบเบิก
                     </button>
+                    <small class="text-muted ml-1" id="lbl-pending-selected"></small>
+                </div>
+            </div>
+            <div>
+                <div id="tab-withdrawal-headers">
+                    <table class="table table-sm table-hover mb-0">
+                        <thead class="thead-light">
+                            <tr>
+                                <th class="text-center">#</th>
+                                <th>เลขที่เบิก</th>
+                                <th>วันที่</th>
+                                <th class="text-center">จำนวนรายการ</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbl-withdrawal-headers-body">
+                            <tr>
+                                <td colspan="5" class="text-center text-muted p-3">กำลังโหลด...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div id="tab-withdrawal-pending" style="display:none">
+                    <table class="table table-sm table-hover mb-0">
+                        <thead class="thead-light">
+                            <tr>
+                                <th class="text-center">IMG</th>
+                                <th>Article</th>
+                                <th>OrderNo</th>
+                                <th>EDesFn</th>
+                                <th>ListGem</th>
+                                <th class="text-center">จำนวน</th>
+                                <th>หมายเหตุ</th>
+                                <th class="text-center">Date</th>
+                                <th class="text-center" style="width:40px">
+                                    <input type="checkbox" id="chk-pending-all" class="custom-checkbox"
+                                           onclick="toggleAllPending(this)">
+                                </th>
+                                <th style="width:40px"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbl-withdrawal-pending-body">
+                            <tr>
+                                <td colspan="10" class="text-center text-muted p-3">กำลังโหลด...</td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
     </div>
 </div>
 
+<div class="modal fade" id="modal-withdrawal-detail">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">รายละเอียดการเบิก — <span id="lbl-withdrawal-no"></span></h5>
+                <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+            </div>
+            <div class="modal-body p-0">
+                <table class="table table-sm table-bordered mb-0">
+                    <thead class="thead-light">
+                        <tr>
+                            <th class="text-center">IMG</th>
+                            <th>Article</th>
+                            <th>OrderNo</th>
+                            <th>EDesFn</th>
+                            <th>ListGem</th>
+                            <th class="text-center">จำนวน</th>
+                            <th>หมายเหตุ</th>
+                            <th class="text-center">Date</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbl-withdrawal-detail-body"></tbody>
+                </table>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">ปิด</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="container-fluid mt-3">
-    <div class="card">
+    <div class="card d-flex collapsed-card">
+        <div class="card-header">
+            <h3 class="card-title mb-0">
+                <i class="fas fa-hand-holding mr-2"></i>พิมพ์รายงานการยืม
+            </h3>
+            <div class="card-tools">
+                <button type="button" class="btn btn-tool" data-card-widget="collapse">
+                    <i class="fas fa-minus"></i>
+                </button>
+            </div>
+        </div>
+        <div class="card-body pb-0">
+            <div class="row">
+                <div class="col-md-2">
+                    <div class="form-group">
+                        <label for="txtBorrowArticle">Article</label>
+                        <input type="text" id="txtBorrowArticle" class="form-control" placeholder="กรอก Article">
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="form-group">
+                        <label for="txtBorrowNo">เลขที่ใบยืม</label>
+                        <input type="text" id="txtBorrowNo" class="form-control" placeholder="เลขที่ใบยืม">
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="form-group">
+                        <label for="ddlBorrowEDesArt">ประเภทสินค้า (EDesArt)</label>
+                        <select id="ddlBorrowEDesArt" class="form-control" style="width:100%">
+                            <option value="">-- ทั้งหมด --</option>
+                            @foreach (var pt in (ViewBag.ProductTypes as List<string> ?? new List<string>()))
+                            {
+                                <option value="@pt">@pt</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="form-group">
+                        <label for="ddlBorrowStatusFilter">สถานะ</label>
+                        <select id="ddlBorrowStatusFilter" class="form-control">
+                            <option value="all">ทั้งหมด</option>
+                            <option value="pending">ยังไม่คืน</option>
+                            <option value="returned">คืนแล้ว</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <div class="form-group">
+                        <button type="button" class="btn btn-primary mr-2" onclick="searchBorrow()">
+                            <i class="fas fa-search mr-1"></i>ค้นหา
+                        </button>
+                        <button type="button" class="btn btn-secondary" onclick="clearBorrowFilter()">
+                            <i class="fas fa-times mr-1"></i>ล้าง
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="d-flex align-items-end">
+                <ul class="nav nav-tabs flex-grow-1" id="tabs-borrow" role="tablist">
+                    <li class="nav-item">
+                        <a class="nav-link active" id="tab-borrow-headers-link" href="#" role="tab" onclick="switchBorrowTab('headers')">
+                            <i class="fas fa-list mr-1"></i>ใบยืม
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" id="tab-borrow-pending-link" href="#" role="tab" onclick="switchBorrowTab('pending')">
+                            <i class="fas fa-clock mr-1"></i>รอสร้างใบยืม
+                            <span class="badge badge-warning ml-1" id="badge-borrow-pending-count" style="display:none"></span>
+                        </a>
+                    </li>
+                </ul>
+                <div id="toolbar-create-borrow" class="ml-2 pb-1" style="display:none">
+                    <button class="btn btn-success btn-sm" onclick="createBorrowDocument()">
+                        <i class="fas fa-file-alt mr-1"></i>สร้างใบยืม
+                    </button>
+                    <small class="text-muted ml-1" id="lbl-borrow-pending-selected"></small>
+                </div>
+            </div>
+            <div id="tab-borrow-headers">
+                <table class="table table-sm table-hover mb-0">
+                    <thead class="thead-light">
+                        <tr>
+                            <th class="text-center">#</th>
+                            <th>เลขที่ยืม</th>
+                            <th>วันที่</th>
+                            <th class="text-center">จำนวนรายการ</th>
+                            <th class="text-center">สถานะ</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbl-borrow-headers-body">
+                        <tr><td colspan="6" class="text-center text-muted p-3">กำลังโหลด...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div id="tab-borrow-pending" style="display:none">
+                <table class="table table-sm table-hover mb-0">
+                    <thead class="thead-light">
+                        <tr>
+                            <th class="text-center">IMG</th>
+                            <th>Article</th>
+                            <th>EDesFn</th>
+                            <th>ListGem</th>
+                            <th class="text-center">จำนวน</th>
+                            <th class="text-center">Date</th>
+                            <th class="text-center">สถานะ</th>
+                            <th class="text-center" style="width:40px">
+                                <input type="checkbox" id="chk-borrow-pending-all" class="custom-checkbox" onclick="toggleAllBorrowPending(this)">
+                            </th>
+                            <th style="width:40px"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbl-borrow-pending-body">
+                        <tr><td colspan="9" class="text-center text-muted p-3">กำลังโหลด...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modal-borrow-detail">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">รายละเอียดการยืม — <span id="lbl-borrow-no"></span></h5>
+                <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+            </div>
+            <div class="modal-body p-0">
+                <table class="table table-sm table-bordered mb-0">
+                    <thead class="thead-light">
+                        <tr>
+                            <th class="text-center">IMG</th>
+                            <th>Article</th>
+                            <th>EDesFn</th>
+                            <th>ListGem</th>
+                            <th class="text-center">จำนวน</th>
+                            <th class="text-center">Date</th>
+                            <th class="text-center">สถานะ</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbl-borrow-detail-body"></tbody>
+                </table>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">ปิด</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container-fluid mt-3">
+    <div class="card d-flex collapsed-card"">
+        <div class="card-header">
+            <h3 class="card-title mb-0">
+                <i class="fas fa-tools mr-2"></i>พิมพ์รายงานการส่งซ่อม
+            </h3>
+            <div class="card-tools">
+                <button type="button" class="btn btn-tool" data-card-widget="collapse">
+                    <i class="fas fa-minus"></i>
+                </button>
+            </div>
+        </div>
+        <div class="card-body pb-0">
+            <div class="row">
+                <div class="col-md-3">
+                    <div class="form-group">
+                        <label for="txtBreakArticle">Article</label>
+                        <input type="text" id="txtBreakArticle" class="form-control" placeholder="กรอก Article">
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="form-group">
+                        <label for="txtBreakNo">เลขที่ใบส่งซ่อม</label>
+                        <input type="text" id="txtBreakNo" class="form-control" placeholder="เลขที่ใบส่งซ่อม">
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-group">
+                        <label for="ddlBreakEDesArt">ประเภทสินค้า (EDesArt)</label>
+                        <select id="ddlBreakEDesArt" class="form-control" style="width:100%">
+                            <option value="">-- ทั้งหมด --</option>
+                            @foreach (var pt in (ViewBag.ProductTypes as List<string> ?? new List<string>()))
+                            {
+                                <option value="@pt">@pt</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <div class="form-group">
+                        <button type="button" class="btn btn-primary mr-2" onclick="searchBreak()">
+                            <i class="fas fa-search mr-1"></i>ค้นหา
+                        </button>
+                        <button type="button" class="btn btn-secondary" onclick="clearBreakFilter()">
+                            <i class="fas fa-times mr-1"></i>ล้าง
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="d-flex align-items-end">
+                <ul class="nav nav-tabs flex-grow-1" id="tabs-break" role="tablist">
+                    <li class="nav-item">
+                        <a class="nav-link active" id="tab-break-headers-link" href="#" role="tab" onclick="switchBreakTab('headers')">
+                            <i class="fas fa-list mr-1"></i>ใบส่งซ่อม
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" id="tab-break-pending-link" href="#" role="tab" onclick="switchBreakTab('pending')">
+                            <i class="fas fa-clock mr-1"></i>รอสร้างใบส่งซ่อม
+                            <span class="badge badge-warning ml-1" id="badge-break-pending-count" style="display:none"></span>
+                        </a>
+                    </li>
+                </ul>
+                <div id="toolbar-create-break" class="ml-2 pb-1" style="display:none">
+                    <button class="btn btn-success btn-sm" onclick="createBreakDocument()">
+                        <i class="fas fa-file-alt mr-1"></i>สร้างใบส่งซ่อม
+                    </button>
+                    <small class="text-muted ml-1" id="lbl-break-pending-selected"></small>
+                </div>
+            </div>
+            <div id="tab-break-headers">
+                <table class="table table-sm table-hover mb-0">
+                    <thead class="thead-light">
+                        <tr>
+                            <th class="text-center">#</th>
+                            <th>เลขที่ส่งซ่อม</th>
+                            <th>วันที่</th>
+                            <th class="text-center">จำนวนรายการ</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbl-break-headers-body">
+                        <tr><td colspan="5" class="text-center text-muted p-3">กำลังโหลด...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div id="tab-break-pending" style="display:none">
+                <table class="table table-sm table-hover mb-0">
+                    <thead class="thead-light">
+                        <tr>
+                            <th class="text-center">IMG</th>
+                            <th>Article</th>
+                            <th>OrderNo</th>
+                            <th>EDesFn</th>
+                            <th>ListGem</th>
+                            <th>อาการ</th>
+                            <th class="text-center">จำนวน</th>
+                            <th class="text-center">Date</th>
+                            <th class="text-center" style="width:40px">
+                                <input type="checkbox" id="chk-break-pending-all" class="custom-checkbox"
+                                       onclick="toggleAllBreakPending(this)">
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbl-break-pending-body">
+                        <tr><td colspan="9" class="text-center text-muted p-3">กำลังโหลด...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modal-break-detail">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">รายละเอียดการส่งซ่อม — <span id="lbl-break-no"></span></h5>
+                <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+            </div>
+            <div class="modal-body p-0">
+                <table class="table table-sm table-bordered mb-0">
+                    <thead class="thead-light">
+                        <tr>
+                            <th class="text-center">IMG</th>
+                            <th>Article</th>
+                            <th>OrderNo</th>
+                            <th>EDesFn</th>
+                            <th>ListGem</th>
+                            <th>อาการ</th>
+                            <th class="text-center">จำนวน</th>
+                            <th class="text-center">Date</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbl-break-detail-body"></tbody>
+                </table>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">ปิด</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container-fluid mt-3">
+    <div class="card d-flex collapsed-card">
         <div class="card-header">
             <h3 class="card-title mb-0">
                 <i class="fas fa-boxes mr-2"></i>พิมพ์รายงานสถานะสต็อค
             </h3>
+            <div class="card-tools">
+                <button type="button" class="btn btn-tool" data-card-widget="collapse">
+                    <i class="fas fa-minus"></i>
+                </button>
+            </div>
         </div>
         <div class="card-body">
             <div class="row">
@@ -68,34 +473,57 @@
                 <div class="col-md-3">
                     <div class="form-group">
                         <label for="ddlStockEDesArt">ประเภทสินค้า (EDesArt)</label>
-                        <select id="ddlStockEDesArt" class="form-control">
+                        <select id="ddlStockEDesArt" class="form-control" style="width:100%">
                             <option value="">-- ทั้งหมด --</option>
-                            <option value="RING">RING</option>
-                            <option value="EARRING">EARRING</option>
-                            <option value="PENDANT">PENDANT</option>
-                            <option value="NECKLACE">NECKLACE</option>
-                            <option value="BRACELET">BRACELET</option>
-                            <option value="STUD">PIERCING</option>
+                            @foreach (var pt in (ViewBag.ProductTypes as List<string> ?? new List<string>()))
+                            {
+                                <option value="@pt">@pt</option>
+                            }
                         </select>
                     </div>
                 </div>
                 <div class="col-md-2">
                     <div class="form-group">
-                        <label for="ddlStockUnit">ประเภทงาน (Unit)</label>
-                        <select id="ddlStockUnit" class="form-control">
+                        <label for="ddlStockUnit">สถานะการลงทะเบียน</label>
+                        <select id="ddlStockUnit" class="form-control" style="width:100%">
                             <option value="">-- ทั้งหมด --</option>
-                            <option value="PR">PR</option>
-                            <option value="PC">PC</option>
-                            <option value="SET">SET</option>
+                            <option value="1">งาน Z ที่รอลงทะเบียน</option>
+                            <option value="2">ลงทะเบียนแล้ว</option>
                         </select>
                     </div>
                 </div>
-                <div class="col-md-3 d-flex align-items-end">
-                    <button type="button" class="btn btn-primary" onclick="printStockToPDF()">
+                <div class="col-md-3 d-flex align-items-end gap-2">
+                    <button type="button" class="btn btn-secondary" onclick="printStockToPDF()">
                         <i class="fas fa-print mr-1"></i>พิมพ์รายงาน
+                    </button>
+                    <button type="button" class="btn btn-info" onclick="printStockNoIMGToPDF()">
+                        <i class="fas fa-list mr-1"></i>พิมพ์ตาราง
                     </button>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+<script>
+    ['#ddlWithdrawalEDesArt', '#ddlBorrowEDesArt', '#ddlBreakEDesArt', '#ddlStockEDesArt', '#ddlStockUnit'].forEach(function (id) {
+        if ($(id).hasClass('select2-hidden-accessible')) $(id).select2('destroy');
+        $(id).select2({ placeholder: '-- ทั้งหมด --', allowClear: true, width: '100%' });
+    });
+
+    $('#ddlWithdrawalEDesArt').on('change', function () { searchWithdrawal(); });
+    $('#txtWithdrawalArticle, #txtWithdrawalNo').on('keydown', function (e) { if (e.key === 'Enter') searchWithdrawal(); });
+
+    $('#ddlBorrowEDesArt').on('change', function () { searchBorrow(); });
+    $('#txtBorrowArticle, #txtBorrowNo').on('keydown', function (e) { if (e.key === 'Enter') searchBorrow(); });
+
+    $('#ddlBreakEDesArt').on('change', function () { searchBreak(); });
+    $('#txtBreakArticle, #txtBreakNo').on('keydown', function (e) { if (e.key === 'Enter') searchBreak(); });
+
+    loadWithdrawalHeaders();
+    loadPendingWithdrawals();
+    loadBorrowHeaders();
+    loadPendingBorrows();
+    loadBreakHeaders();
+    loadPendingBreaks();
+</script>

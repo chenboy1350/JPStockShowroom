@@ -44,7 +44,7 @@
                         </li>
                     }
 
-                    @if (User.HasClaim("Menu", "StockManagement") || true)
+                    @if (User.HasClaim("Menu", "StockManagement"))
                     {
                         <li class="nav-item">
                             <a href="#" class="nav-link" data-action="@Url.Action("StockManagement", "Home")">
@@ -54,14 +54,17 @@
                         </li>
                     }
 
-                    <li class="nav-item">
-                        <a href="#" class="nav-link" data-action="@Url.Action("PrintReport", "Home")">
-                            <i class="nav-icon fas fa-print"></i>
-                            <p>พิมพ์รายงาน</p>
-                        </a>
-                    </li>
+                    @if (User.HasClaim("Menu", "PrintReport"))
+                    {
+                        <li class="nav-item">
+                            <a href="#" class="nav-link" data-action="@Url.Action("PrintReport", "Home")">
+                                <i class="nav-icon fas fa-print"></i>
+                                <p>พิมพ์รายงาน</p>
+                            </a>
+                        </li>
+                    }
 
-                    @if (User.HasClaim("Menu", "UserManagement"))
+                    @if (User.HasClaim("Menu", "PermissionManagement"))
                     {
                         <li class="nav-header">ADMINISTRATION</li>
                     }
@@ -126,7 +129,7 @@
                         {
                             <div class="col-xl-3 col-lg-4 col-md-6 col-sm-6 col-12 mb-4">
                                 <a href="#" class="mc-link" data-action="@Url.Action("StockManagement", "Home")">
-                                    <div class="mc-card mc-card--green">
+                                    <div class="mc-card mc-card--indigo">
                                         <div class="mc-icon">
                                             <i class="fas fa-boxes"></i>
                                         </div>
@@ -141,9 +144,12 @@
                                 </a>
                             </div>
                         }
+
+                        @if (User.HasClaim("Menu", "PrintReport"))
+                        {
                             <div class="col-xl-3 col-lg-4 col-md-6 col-sm-6 col-12 mb-4">
                                 <a href="#" class="mc-link" data-action="@Url.Action("PrintReport", "Home")">
-                                    <div class="mc-card mc-card--green">
+                                    <div class="mc-card mc-card--teal">
                                         <div class="mc-icon">
                                             <i class="fas fa-print"></i>
                                         </div>
@@ -157,6 +163,7 @@
                                     </div>
                                 </a>
                             </div>
+                        }
                     </div>
                 </div>
 
@@ -222,6 +229,8 @@
         window.urlGetRecievedToReturn = '@Url.Action("GetRecievedToReturn", "Home")';
         window.urlReturnAssignment = '@Url.Action("ReturnAssignment", "Home")';
         window.urlImportReceiveNo = '@Url.Action("ImportReceiveNo", "Home")';
+        window.urlImportSPReceiveNo = '@Url.Action("ImportSPReceiveNo", "Home")';
+        window.urlUpdateSPLotItems = '@Url.Action("UpdateSPLotItems", "Home")';
         window.urlUpdateLotByRevNoItems = '@Url.Action("UpdateLotByRevNoItems", "Home")';
         window.urlGetOrderToSendQty = '@Url.Action("GetOrderToSendQty", "Home")';
         window.urlDefineToPack = '@Url.Action("DefineToPack", "Home")';
@@ -229,8 +238,14 @@
         window.urlGetImage = '@Url.Action("GetImage", "Home")';
         window.urlSendQtyToPackReport = '@Url.Action("SendQtyToPackReport", "Home")';
         window.urlGetReceiveRow = '@Url.Action("GetReceiveRow", "Home")';
+        window.urlGetSPReceiveList = '@Url.Action("GetSPReceiveList", "Home")';
+        window.urlGetSPReceiveRow = '@Url.Action("GetSPReceiveRow", "Home")';
         window.urlCheckUser = '@Url.Action("CheckUser", "Home")';
         window.urlGetReceiveList = '@Url.Action("GetReceiveList", "Home")';
+        window.urlCancelImportReceiveNo = '@Url.Action("CancelImportReceiveNo", "Home")';
+        window.urlCancelUpdateLotItems = '@Url.Action("CancelUpdateLotItems", "Home")';
+        window.urlCancelImportSPReceiveNo = '@Url.Action("CancelImportSPReceiveNo", "Home")';
+        window.urlCancelUpdateSPLotItems = '@Url.Action("CancelUpdateSPLotItems", "Home")';
         window.urlAddNewBreakDescription = '@Url.Action("AddNewBreakDescription", "Home")';
         window.urlLostReport = '@Url.Action("LostReport", "Home")';
         window.urlBreakReport = '@Url.Action("BreakReport", "Home")';
@@ -300,16 +315,34 @@
         window.urlDeleteTray = '@Url.Action("DeleteTray", "Home")';
         window.urlAddToTray = '@Url.Action("AddToTray", "Home")';
         window.urlRemoveFromTray = '@Url.Action("RemoveFromTray", "Home")';
-        window.urlBorrowFromTray = '@Url.Action("BorrowFromTray", "Home")';
-        window.urlReturnToTray = '@Url.Action("ReturnToTray", "Home")';
+        window.urlBorrowFromStock = '@Url.Action("BorrowFromStock", "Home")';
+        window.urlReturnBorrow = '@Url.Action("ReturnBorrow", "Home")';
         window.urlGetBorrowList = '@Url.Action("GetBorrowList", "Home")';
+        window.urlGetBorrowsByStockId = '@Url.Action("GetBorrowsByStockId", "Home")';
         window.urlWithdrawFromStock = '@Url.Action("WithdrawFromStock", "Home")';
         window.urlGetWithdrawalList = '@Url.Action("GetWithdrawalList", "Home")';
         window.urlGetArticleList = '@Url.Action("GetArticleList", "Home")';
 
         // Print Report
         window.urlWithdrawalReport = '@Url.Action("WithdrawalReport", "Home")';
+        window.urlBorrowReport = '@Url.Action("BorrowReport", "Home")';
         window.urlStockReport = '@Url.Action("StockReport", "Home")';
+        window.urlStockNoIMGReport = '@Url.Action("StockNoIMGReport", "Home")';
+        window.urlGetWithdrawalHeaders = '@Url.Action("GetWithdrawalHeaders", "Home")';
+        window.urlGetWithdrawalDetailsByNo = '@Url.Action("GetWithdrawalDetailsByNo", "Home")';
+        window.urlGetPendingWithdrawalDetails = '@Url.Action("GetPendingWithdrawalDetails", "Home")';
+        window.urlCreateWithdrawalDocument = '@Url.Action("CreateWithdrawalDocument", "Home")';
+        window.urlCancelPendingWithdrawal = '@Url.Action("CancelPendingWithdrawal", "Home")';
+        window.urlGetBorrowHeaders = '@Url.Action("GetBorrowHeaders", "Home")';
+        window.urlGetBorrowDetailsByNo = '@Url.Action("GetBorrowDetailsByNo", "Home")';
+        window.urlGetPendingBorrowDetails = '@Url.Action("GetPendingBorrowDetails", "Home")';
+        window.urlCreateBorrowDocument = '@Url.Action("CreateBorrowDocument", "Home")';
+        window.urlCancelPendingBorrow = '@Url.Action("CancelPendingBorrow", "Home")';
+        window.urlGetBreakHeaders = '@Url.Action("GetBreakHeaders", "Home")';
+        window.urlGetBreakDetailsByNo = '@Url.Action("GetBreakDetailsByNo", "Home")';
+        window.urlGetPendingBreakDetails = '@Url.Action("GetPendingBreakDetails", "Home")';
+        window.urlCreateBreakDocument = '@Url.Action("CreateBreakDocument", "Home")';
+        window.urlSearchAddStockItems = '@Url.Action("SearchAddStockItems", "Home")';
     </script>
 
     <script src="~/js/ReceiveManagement.js" asp-append-version="true"></script>

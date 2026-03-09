@@ -3,7 +3,9 @@
     "allow": [
       "Bash(del:*)",
       "Bash(dir:*)",
-      "Bash(dotnet build:*)"
+      "Bash(dotnet build:*)",
+      "Bash(grep -n \"class.*BorrowModel\\\\|class.*BorrowHeaderModel\" \"e:/repo/JPStockShowRoom/JPStockShowRoom/Models/\"*.cs)",
+      "Bash(\"e:/repo/JPStockShowRoom/JPStockShowRoom/wwwroot/js/StockManagement.js\")"
     ]
   }
 }

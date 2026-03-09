@@ -4,6 +4,7 @@ $(document).ready(function () {
         if (e.key === 'Enter') {
             e.preventDefault();
             findStock();
+            loadTrayList();
         }
     });
 
@@ -197,8 +198,9 @@ $(document).ready(function () {
                     beforeSend: () => $('#loadingIndicator').show(),
                     success: async () => {
                         $('#loadingIndicator').hide();
-                        CloseModal();
+                        $('.modal').modal('hide');
                         findStock();
+                        loadTrayList();
                         await swalSuccess("เพิ่ม รายการชำรุด เรียบร้อย");
                     },
                     error: async (xhr) => {
@@ -266,11 +268,12 @@ function selectArticle(article) {
 
 function clearArticleFilter() {
     $('#txtArticleSearch').val('');
-    $('#ddlEDesArt').val('');
-    $('#ddlUnit').val('');
+    $('#ddlEDesArt').val('').trigger('change');
+    $('#ddlUnit').val('').trigger('change');
     _selectedArticle = null;
     renderArticlePanel(_allArticles);
     findStock();
+    loadTrayList();
 }
 
 var _articlePanelVisible = true;
@@ -335,12 +338,14 @@ function switchStockTab(tab) {
 function onFilterDDLChange() {
     _selectedArticle = null;
     findStock();
+    loadTrayList();
 }
 
 function findStock() {
     const article = _selectedArticle || '';
     const edesArt = $('#ddlEDesArt').val() || '';
-    const unit = $('#ddlUnit').val() || '';
+    const registrationStatusRaw = $('#ddlUnit').val();
+    const registrationStatus = registrationStatusRaw ? parseInt(registrationStatusRaw) : null;
     const tbody = $('#tbl-stock-body');
 
     tbody.html('<tr><td colspan="9" class="text-center text-muted">กำลังค้นหา...</td></tr>');
@@ -348,19 +353,19 @@ function findStock() {
     $.ajax({
         url: urlGetStockList,
         method: 'GET',
-        data: { article: article, edesArt: edesArt, unit: unit },
+        data: { article: article, edesArt: edesArt, registrationStatus: registrationStatus },
         success: function (rows) {
             _allStockRows = rows || [];
 
             const generalCount = _allStockRows.filter(r => r.article).length;
-            const pendingCount = _allStockRows.filter(r => !r.article && r.tempArticle).length;
+            const pendingCount = _allStockRows.filter(r => !r.article).length;
             $('#badge-stock-general').text(generalCount);
             $('#badge-stock-pending').text(pendingCount);
 
             if (!_selectedArticle) {
                 const filteredArticles = [...new Set(
                     _allStockRows
-                        .map(r => r.article)
+                        .flatMap(r => [r.article, r.tempArticle])
                         .filter(a => a)
                 )].sort();
                 _allArticles = filteredArticles;
@@ -380,7 +385,7 @@ function renderStockTable() {
     let rows;
 
     if (_activeStockTab === 'pending') {
-        rows = _allStockRows.filter(r => !r.article && r.tempArticle);
+        rows = _allStockRows.filter(r => !r.article);
     } else {
         rows = _allStockRows.filter(r => r.article);
     }
@@ -396,33 +401,40 @@ function renderStockTable() {
         if (_activeStockTab === 'pending') {
             statusBadge = `<span class="badge badge-warning">รอลงทะเบียน</span>`;
             actionBtn = '';
-        } else if (r.isWithdrawn) {
-            statusBadge = `<span class="badge badge-secondary">เบิกออกแล้ว</span>`;
+        } else if (!r.isActive) {
+            statusBadge = `<span class="badge badge-secondary">เบิกออกหมดแล้ว</span>`;
             actionBtn = '';
         } else {
-            if (r.isInTray) {
-                const inTrayQty = r.ttQty - r.availableQty;
-                let badges = `<span class="badge badge-success">ในคลัง</span><span class="badge badge-info">ถาด ${html(r.trayNo)} (${num(inTrayQty)})</span>`;
+            {
+                let badges = `<span class="badge badge-success">ในคลัง</span>`;
+                if (r.isInTray) {
+                    badges += `<span class="badge badge-info">ถาด ${html(r.trayNo)} (${num(r.inTrayQty)})</span>`;
+                }
                 if (r.borrowCount > 0) {
-                    badges += `<span class="badge badge-warning"><i class="fas fa-hand-holding"></i> ยืมอยู่</span>`;
+                    badges += `<span class="badge badge-warning"><i class="fas fa-hand-holding"></i> ยืมอยู่ (${num(r.borrowedQty)})</span>`;
                 }
                 if (r.isRepairing) {
                     badges += `<span class="badge badge-danger"><i class="fas fa-hammer"></i> ส่งซ่อม</span>`;
                 }
                 statusBadge = `<div class="d-flex flex-column gap-1 align-items-center">${badges}</div>`;
-            } else {
-                let badges = `<span class="badge badge-success">ในคลัง</span>`;
-                if (r.isRepairing) {
-                    badges += `<span class="badge badge-danger"><i class="fas fa-hammer"></i> ส่งซ่อม</span>`;
-                }
-                statusBadge = r.isRepairing
-                    ? `<div class="d-flex flex-column gap-1 align-items-center">${badges}</div>`
-                    : `<span class="badge badge-success">ในคลัง</span>`;
             }
 
-            const breakBtn = `<button class="btn btn-warning btn-sm w-100" onclick="showModalBreak(${r.receivedId}, '${html(r.article || r.tempArticle || '')}')" title="ส่งซ่อม">
+            const breakBtn = r.isFromSP ? '' : `<button class="btn btn-warning btn-sm w-100" onclick="showBreakAdd(${r.receivedId})" title="ส่งซ่อม">
                         <i class="fas fa-hammer"></i> ส่งซ่อม
                     </button>`;
+
+            const returnBtn = r.borrowCount > 0
+                ? `<button class="btn btn-primary btn-sm w-100" onclick="showReturnBorrow(${r.receivedId})" title="คืนสินค้า">
+                        <i class="fas fa-undo"></i> คืน
+                    </button>`
+                : '';
+
+            const borrowableQty = r.ttQty - r.borrowedQty;
+            const borrowBtn = borrowableQty > 0
+                ? `<button class="btn btn-success btn-sm w-100" onclick="borrowItem(${r.receivedId}, ${borrowableQty})" title="ยืม">
+                        <i class="fas fa-hand-holding"></i> ยืม
+                    </button>`
+                : '';
 
             if (r.availableQty > 0) {
                 actionBtn = `<div class="d-flex flex-column gap-1 align-items-center">
@@ -433,11 +445,14 @@ function renderStockTable() {
                         <i class="fas fa-file-export"></i> เบิก
                     </button>
                     ${breakBtn}
+                    ${borrowBtn}
+                    ${returnBtn}
                 </div>`;
             } else {
                 actionBtn = `<div class="d-flex flex-column gap-1 align-items-center">
-                    <span class="text-muted small">จองหมดแล้ว</span>
-                    ${breakBtn}
+                    <span class="text-muted small">ไม่มีในคลัง</span>
+                    ${borrowBtn}
+                    ${returnBtn}
                 </div>`;
             }
         }
@@ -449,14 +464,14 @@ function renderStockTable() {
                                 <img class="imgOrderLot" src="${urlGetImage}?filename=${encodeURIComponent(r.fileName)}" width="80" height="80" alt="Product Image">
                             </div>
                         </td>
-                        <td class="text-center"><strong>${html(r.article || r.tempArticle || '')}</strong></td>
+                        <td class="text-center"><strong>${html(r.article || r.tempArticle || '')}</strong><br><small class="text-muted">${html(r.tempArticle || '')}</small></td>
                         <td class="text-center">${html(r.orderNo)}</td>
                         <td><small>${html(r.eDesFn)}</small></td>
                         <td class="text-center">${r.listGem != null ? r.listGem : ''}</td>
                         <td class="text-center">${r.createDate}</td>
                         <td class="text-end">
                             <div>${num(r.ttQty)}</div>
-                            ${r.ttQty !== r.availableQty ? `<small class="text-success" title="พร้อมเบิก">(${num(r.availableQty)})</small>` : ''}
+                            ${r.availableQty > 0 && r.availableQty !== r.ttQty ? `<small class="text-success" title="พร้อมเบิก">(${num(r.availableQty)})</small>` : ''}
                         </td>
                         <td class="text-center">${statusBadge}</td>
                         <td class="text-center">${actionBtn}</td>
@@ -517,9 +532,6 @@ function loadTrayList() {
                                 </button>
                                 <button class="btn btn-success btn-sm" onclick="showAddToTrayModal(${t.trayId}, '${html(t.trayNo)}')" title="เพิ่มสินค้า">
                                     <i class="fas fa-plus"></i>
-                                </button>
-                                <button class="btn btn-warning btn-sm" onclick="showBorrowList(${t.trayId})" title="รายการยืม">
-                                    <i class="fas fa-hand-holding"></i>
                                 </button>
                                 ${t.borrowCount === 0 ? `<button class="btn btn-danger btn-sm" onclick="deleteTray(${t.trayId}, '${html(t.trayNo)}')" title="ลบถาด"><i class="fas fa-trash"></i></button>` : ''}
                             </div>
@@ -617,7 +629,7 @@ function loadReceivedForTray(trayId, article) {
                                 <img class="imgOrderLot" src="${urlGetImage}?filename=${encodeURIComponent(x.fileName || '')}" width="80" height="80" alt="Product Image">
                             </div>
                         </td>
-                        <td class="text-center">${html(x.article || '')}<br /><small>${html(x.tempArticle || '')}</small></td>
+                        <td class="text-center">${html(x.article || '')}</td>
                         <td>${html(x.orderNo)}</td>
                         <td><small>${html(x.eDesFn || '')}</small></td>
                         <td class="text-center">${html(x.listGem || '')}</td>
@@ -679,20 +691,16 @@ function showTrayDetail(trayId, trayNo) {
                 totalQty += Number(x.qty) || 0;
                 totalWg += Number(x.wg) || 0;
 
-                const availableQty = x.qty - x.borrowedQty;
                 const statusBadge = x.isBorrowed
-                    ? `<span class="badge badge-warning">ถูกยืมหมด</span>`
-                    : (x.borrowedQty > 0 ? `<span class="badge badge-info">ยืมบางส่วน (${num(x.borrowedQty)})</span>` : `<span class="badge badge-success">อยู่ในถาด</span>`);
+                    ? (x.qty <= 0
+                        ? `<span class="badge badge-danger">ถูกยืมหมด</span>`
+                        : `<span class="badge badge-warning">ถูกยืมบางส่วน</span>`)
+                    : `<span class="badge badge-success">อยู่ในถาด</span>`;
 
 
-                const actionBtn = availableQty <= 0
-                    ? ''
-                    : `<button class="btn btn-warning btn-sm" onclick="borrowItem(${x.trayItemId}, ${availableQty})" title="ยืม">
-                           <i class="fas fa-hand-holding"></i> ยืม
-                       </button>
-                       <button class="btn btn-danger btn-sm" onclick="removeFromTray(${x.trayItemId}, ${trayId}, '${html(trayNo)}')" title="นำออก">
-                           <i class="fas fa-times"></i>
-                       </button>`;
+                const actionBtn = x.isBorrowed
+                    ? `<button class="btn btn-secondary btn-sm" disabled title="กำลังถูกยืม"><i class="fas fa-lock"></i></button>`
+                    : `<button class="btn btn-danger btn-sm" onclick="removeFromTray(${x.trayItemId}, ${trayId}, '${html(trayNo)}')" title="นำออก"><i class="fas fa-times"></i></button>`;
 
                 return `
                     <tr data-tray-item-id="${x.trayItemId}">
@@ -723,9 +731,9 @@ function showTrayDetail(trayId, trayNo) {
 
 
 
-async function borrowItem(trayItemId, maxQty) {
+async function borrowItem(stockId, maxQty) {
     const { value: borrowQty } = await Swal.fire({
-        title: 'ยืมสินค้าจากถาด',
+        title: 'ยืมสินค้า',
         text: `ระบุจำนวนที่ต้องการยืม (สูงสุด ${num(maxQty)})`,
         input: 'number',
         inputAttributes: {
@@ -743,7 +751,7 @@ async function borrowItem(trayItemId, maxQty) {
                 return false;
             }
             if (parseFloat(value) > parseFloat(maxQty)) {
-                Swal.showValidationMessage('จำนวนที่ยืมเกินกว่าที่มีในถาด');
+                Swal.showValidationMessage('จำนวนที่ยืมเกินกว่าที่มี');
                 return false;
             }
             return value;
@@ -755,14 +763,12 @@ async function borrowItem(trayItemId, maxQty) {
     $('#loadingIndicator').show();
 
     $.ajax({
-        url: urlBorrowFromTray,
+        url: urlBorrowFromStock,
         type: 'POST',
-        data: { trayItemId: trayItemId, borrowQty: borrowQty },
+        data: { stockId: stockId, borrowQty: borrowQty },
         success: function () {
             $('#loadingIndicator').hide();
-            const trayId = $('#hddDetailTrayId').val();
-            const trayNo = $('#txtTitleTrayDetail').text().split(':')[1]?.trim() || '';
-            showTrayDetail(trayId, trayNo);
+            findStock();
             loadTrayList();
             swalToastSuccess('ยืมสินค้าเรียบร้อย');
         },
@@ -802,6 +808,7 @@ async function removeFromTray(trayItemId, trayId, trayNo) {
             showTrayDetail(trayId, trayNo);
             loadTrayList();
             findStock();
+            loadTrayList();
             swalToastSuccess('นำสินค้าออกจากถาดเรียบร้อย');
         },
         error: async function (xhr) {
@@ -812,7 +819,7 @@ async function removeFromTray(trayItemId, trayId, trayNo) {
     });
 }
 
-function showBorrowList(trayId) {
+function showBorrowList(stockId) {
     const modal = $('#modal-borrow-list');
     const tbody = modal.find('#tbl-borrow-body');
     tbody.html('<tr><td colspan="8" class="text-center text-muted">กำลังโหลด...</td></tr>');
@@ -822,33 +829,33 @@ function showBorrowList(trayId) {
     $.ajax({
         url: urlGetBorrowList,
         method: 'GET',
-        data: { trayId: trayId || null },
+        data: { stockId: stockId || null },
         success: function (borrows) {
             tbody.empty();
 
             if (!borrows || borrows.length === 0) {
-                tbody.append('<tr><td colspan="9" class="text-center text-muted">ไม่มีรายการยืม</td></tr>');
+                tbody.append('<tr><td colspan="8" class="text-center text-muted">ไม่มีรายการยืม</td></tr>');
                 return;
             }
 
-            const rows = borrows.map(function (b, i) {
+            const rows = borrows.map(function (b) {
                 return `
-                    <tr data-borrow-id="${b.trayBorrowId}">
+                    <tr data-borrow-id="${b.borrowDetailId}">
                         <td>
                             <div class="image-zoom-container">
                                 <img class="imgOrderLot" src="${urlGetImage}?filename=${encodeURIComponent(b.imgPath || '')}" width="80" height="80" alt="Product Image">
                             </div>
                         </td>
                         <td class="text-center">
-                            ${html(b.article || '')}<br /><small>${html(b.tempArticle || '')}</small>
+                            ${html(b.article || '')}
                         </td>
                         <td><small>${html(b.eDesFn || '')}</small></td>
                         <td class="text-center">${html(b.listGem || '')}</td>
-                        <td class="text-center"><strong>${html(b.trayNo)}</strong></td>
                         <td class="text-end">${num(b.borrowQty)}</td>
                         <td class="text-muted small">${html(b.borrowedDate)}</td>
+                        <td class="text-center">${b.trayNo ? `<span class="badge badge-info">${html(b.trayNo)}</span>` : ''}</td>
                         <td class="text-center">
-                            <button class="btn btn-primary btn-sm" onclick="returnToTray(${b.trayBorrowId})">
+                            <button class="btn btn-primary btn-sm" onclick="returnBorrow(${b.borrowDetailId})">
                                 <i class="fas fa-undo"></i> คืน
                             </button>
                         </td>
@@ -863,10 +870,10 @@ function showBorrowList(trayId) {
     });
 }
 
-async function returnToTray(trayBorrowId) {
+async function returnBorrow(borrowDetailId) {
     const result = await Swal.fire({
         title: 'ยืนยันคืนสินค้า',
-        text: 'ต้องการคืนสินค้ากลับถาด?',
+        text: 'ต้องการคืนสินค้า?',
         icon: 'question',
         showCancelButton: true,
         confirmButtonText: 'คืน',
@@ -878,16 +885,15 @@ async function returnToTray(trayBorrowId) {
     $('#loadingIndicator').show();
 
     $.ajax({
-        url: urlReturnToTray,
+        url: urlReturnBorrow,
         type: 'PATCH',
-        data: { trayBorrowId: trayBorrowId },
+        data: { borrowDetailId: borrowDetailId },
         success: function () {
             $('#loadingIndicator').hide();
-
-            const trayId = $('#hddDetailTrayId').val();
-            showBorrowList(trayId || null);
+            showBorrowList(null);
+            findStock();
             loadTrayList();
-            swalToastSuccess('คืนสินค้ากลับถาดเรียบร้อย');
+            swalToastSuccess('คืนสินค้าเรียบร้อย');
         },
         error: async function (xhr) {
             $('#loadingIndicator').hide();
@@ -898,6 +904,97 @@ async function returnToTray(trayBorrowId) {
 }
 
 
+
+let _returnBorrowStockId = null;
+
+function showReturnBorrow(stockId) {
+    _returnBorrowStockId = stockId;
+    const modal = $('#modal-return-borrow-stock');
+    const tbody = modal.find('#tbl-return-borrow-stock-body');
+    tbody.html('<tr><td colspan="8" class="text-center text-muted">กำลังโหลด...</td></tr>');
+    modal.modal('show');
+    loadBorrowsByStock(stockId);
+}
+
+function loadBorrowsByStock(stockId) {
+    const tbody = $('#tbl-return-borrow-stock-body');
+
+    $.ajax({
+        url: urlGetBorrowsByStockId,
+        method: 'GET',
+        data: { stockId: stockId },
+        success: function (borrows) {
+            tbody.empty();
+
+            if (!borrows || borrows.length === 0) {
+                tbody.append('<tr><td colspan="8" class="text-center text-muted">ไม่มีรายการยืมที่ค้างอยู่</td></tr>');
+                return;
+            }
+
+            const rows = borrows.map(function (b) {
+                return `
+                    <tr>
+                        <td>
+                            <div class="image-zoom-container">
+                                <img class="imgOrderLot" src="${urlGetImage}?filename=${encodeURIComponent(b.imgPath || "")}" width="80" height="80" alt="Product Image">
+                            </div>
+                        </td>
+                        <td class="text-center">
+                            ${html(b.article || "")}
+                        </td>
+                        <td><small>${html(b.eDesFn || "")}</small></td>
+                        <td class="text-center">${html(b.listGem || "")}</td>
+                        <td class="text-end">${num(b.borrowQty)}</td>
+                        <td class="text-muted small">${html(b.borrowedDate)}</td>
+                        <td class="text-center">${b.trayNo ? `<span class="badge badge-info">${html(b.trayNo)}</span>` : ""}</td>
+                        <td class="text-center">
+                            <button class="btn btn-primary btn-sm" onclick="returnBorrowFromStock(${b.borrowDetailId})">
+                                <i class="fas fa-undo"></i> คืน
+                            </button>
+                        </td>
+                    </tr>`;
+            }).join('');
+
+            tbody.append(rows);
+        },
+        error: function () {
+            tbody.html('<tr><td colspan="8" class="text-danger text-center">เกิดข้อผิดพลาด</td></tr>');
+        }
+    });
+}
+
+async function returnBorrowFromStock(borrowDetailId) {
+    const result = await Swal.fire({
+        title: 'ยืนยันคืนสินค้า',
+        text: 'ต้องการคืนสินค้า?',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'คืน',
+        cancelButtonText: 'ยกเลิก'
+    });
+
+    if (!result.isConfirmed) return;
+
+    $('#loadingIndicator').show();
+
+    $.ajax({
+        url: urlReturnBorrow,
+        type: 'PATCH',
+        data: { borrowDetailId: borrowDetailId },
+        success: function () {
+            $('#loadingIndicator').hide();
+            loadBorrowsByStock(_returnBorrowStockId);
+            findStock();
+            loadTrayList();
+            swalToastSuccess('คืนสินค้าเรียบร้อย');
+        },
+        error: async function (xhr) {
+            $('#loadingIndicator').hide();
+            let msg = xhr.responseJSON?.message || 'เกิดข้อผิดพลาด';
+            await swalWarning(msg);
+        }
+    });
+}
 
 async function withdrawStock(receivedId, maxQty, maxWg) {
     const { value: formValues } = await Swal.fire({
@@ -952,6 +1049,7 @@ async function withdrawStock(receivedId, maxQty, maxWg) {
         success: function () {
             $('#loadingIndicator').hide();
             findStock();
+            loadTrayList();
             swalToastSuccess('เบิกสินค้าออกเรียบร้อย');
         },
         error: async function (xhr) {
@@ -965,7 +1063,7 @@ async function withdrawStock(receivedId, maxQty, maxWg) {
 function showWithdrawalHistory() {
     const modal = $('#modal-withdrawal-history');
     const tbody = modal.find('#tbl-withdrawal-body');
-    tbody.html('<tr><td colspan="8" class="text-center text-muted">กำลังโหลด...</td></tr>');
+    tbody.html('<tr><td colspan="9" class="text-center text-muted">กำลังโหลด...</td></tr>');
 
     modal.modal('show');
 
@@ -976,7 +1074,7 @@ function showWithdrawalHistory() {
             tbody.empty();
 
             if (!items || items.length === 0) {
-                tbody.append('<tr><td colspan="8" class="text-center text-muted">ยังไม่มีรายการเบิกออก</td></tr>');
+                tbody.append('<tr><td colspan="9" class="text-center text-muted">ยังไม่มีรายการเบิกออก</td></tr>');
                 $('#txtWithdrawalSummary').text('');
                 return;
             }
@@ -998,6 +1096,7 @@ function showWithdrawalHistory() {
                         <td class="text-center">
                             ${html(x.article || x.tempArticle || "")}<br /><small>${html(x.tempArticle || "")}</small>
                         </td>
+                        <td class="text-center"><strong>${html(x.withdrawalNo || '')}</strong></td>
                         <td class="text-center"><strong>${html(x.orderNo)}</strong></td>
                         <td><small>${html(x.eDesFn || "")}</small></td>
                         <td class="text-center">${html(x.listGem || "")}</td>
@@ -1011,7 +1110,7 @@ function showWithdrawalHistory() {
             $('#txtWithdrawalSummary').text(`รวม ${items.length} รายการ | จำนวน: ${num(totalQty)} | น้ำหนัก: ${num(totalWg)} g`);
         },
         error: function (xhr) {
-            tbody.html(`<tr><td colspan="8" class="text-danger text-center">เกิดข้อผิดพลาด</td></tr>`);
+            tbody.html(`<tr><td colspan="9" class="text-danger text-center">เกิดข้อผิดพลาด</td></tr>`);
         }
     });
 }
@@ -1026,7 +1125,7 @@ function showAddToTrayReverse(stockId, article, maxQty) {
     _reverseSelectedTrayId = null;
 
     $('#hddReverseStockId').val(stockId);
-    $('#txtReverseSearchTray').val(article || '');
+    $('#txtReverseSearchTray').val('');
     $('#txtReverseQty').val(maxQty).attr('max', maxQty);
     $('#lblReverseAvailableQty').text(num(maxQty));
 
@@ -1228,19 +1327,13 @@ async function showModalBreak(receivedId, article) {
                         </div>
                     </td>
                     <td>${html(x.article)}</td>
+                    <td>${html(x.breakNo || '')}</td>
                     <td>${html(x.orderNo)}</td>
                     <td>${html(x.edesFn)}</td>
-                    <td>${html(x.breakDescription)}</td>
                     <td>${html(x.listGem)}</td>
                     <td class="text-center">${html(x.createDateTH)}</td>
                     <td class="text-end">${html(x.breakQty)}</td>
-                    <td class="text-center">${x.isReported ? '✔️' : '❌'}</td>
-                    <td class="text-center">
-                        <div class="chk-wrapper">
-                            <input type="checkbox" id="${x.breakID}_as${i}" class="chk-row custom-checkbox" ${!x.isReported ? 'checked' : ''}>
-                            <label for="${x.breakID}_as${i}" class="d-none"></label>
-                        </div>
-                    </td>
+                    <td>${html(x.breakDescription)}</td>
                 </tr>`;
             }).join('');
             tbody.append(rows);
@@ -1251,6 +1344,11 @@ async function showModalBreak(receivedId, article) {
             await swalWarning(`เกิดข้อผิดพลาด (${xhr.status} ${msg})`);
         }
     });
+}
+
+function showBreakAdd(receivedId) {
+    $('#hddStockId').val(receivedId);
+    showModalAddBreak();
 }
 
 async function showModalAddBreak() {
@@ -1266,4 +1364,91 @@ async function showModalAddBreak() {
     $('#txtBreakQty').val(0)
     const modal = $('#modal-add-break');
     modal.modal('show');
+}
+
+// --- Add Stock Modal ---
+let _addStockItems = [];
+
+function showModalAddStock(stockId) {
+    _addStockItems = [];
+    $('#txtAddStockArticle').val('');
+    $('#txtAddStockBarcode').val('');
+    $('#txtAddStockQty').val('');
+    $('#add-stock-item-info').hide();
+    const ddlInit = $('#ddlAddStockBarcode');
+    ddlInit.html('<option value="">-- ค้นหาก่อน --</option>');
+    if (ddlInit.hasClass('select2-hidden-accessible')) {
+        ddlInit.select2('destroy');
+    }
+    ddlInit.prop('disabled', true).select2({
+        dropdownParent: $('#modal-add-stock'),
+        placeholder: '-- ค้นหาก่อน --'
+    });
+    $('#modal-add-stock').modal('show');
+}
+
+function clearAddStockSearch() {
+    _addStockItems = [];
+    $('#txtAddStockArticle').val('');
+    $('#txtAddStockBarcode').val('');
+    $('#txtAddStockQty').val('');
+    $('#add-stock-item-info').hide();
+    $('#ddlAddStockBarcode').prop('disabled', true).html('<option value="">-- ค้นหาก่อน --</option>').trigger('change');
+}
+
+function searchAddStockArticle() {
+    const article = ($('#txtAddStockArticle').val() || '').trim();
+    const barcode = ($('#txtAddStockBarcode').val() || '').trim();
+    if (!article && !barcode) { swalWarning('กรุณากรอก Article หรือ Barcode อย่างน้อย 1 ช่อง'); return; }
+
+    const ddl = $('#ddlAddStockBarcode');
+    ddl.prop('disabled', true).html('<option value="">กำลังค้นหา...</option>').trigger('change');
+    $('#add-stock-item-info').hide();
+
+    $.ajax({
+        url: urlSearchAddStockItems,
+        method: 'GET',
+        data: { article: article || undefined, barcode: barcode || undefined },
+        success: function (items) {
+            _addStockItems = items || [];
+            if (_addStockItems.length === 0) {
+                ddl.prop('disabled', true).html('<option value="">-- ไม่พบข้อมูล --</option>').trigger('change');
+                $('#add-stock-item-info').hide();
+                return;
+            }
+            ddl.prop('disabled', false).html('<option value="">-- เลือก Barcode --</option>' +
+                _addStockItems.map(function (item) {
+                    return `<option value="${html(item.barcode)}">${html(item.barcode)}</option>`;
+                }).join('')
+            ).trigger('change');
+            if (_addStockItems.length === 1) {
+                ddl.val(_addStockItems[0].barcode).trigger('change');
+                onAddStockBarcodeChange();
+            }
+        },
+        error: function (xhr) {
+            ddl.prop('disabled', true).html('<option value="">-- เกิดข้อผิดพลาด --</option>').trigger('change');
+        }
+    });
+}
+
+function onAddStockBarcodeChange() {
+    const bc = $('#ddlAddStockBarcode').val();
+    if (!bc) { $('#add-stock-item-info').hide(); return; }
+    const item = _addStockItems.find(function (i) { return i.barcode === bc; });
+    if (!item) { $('#add-stock-item-info').hide(); return; }
+    $('#info-add-stock-article').text(item.article || '-');
+    $('#info-add-stock-edesart').text(item.edesArt || '-');
+    $('#info-add-stock-edesfn').text(item.edesFn || '-');
+    $('#info-add-stock-listgem').text(item.listGem || '-');
+    $('#add-stock-item-info').show();
+}
+
+async function confirmAddStock() {
+    const barcode = $('#ddlAddStockBarcode').val();
+    const qty = parseFloat($('#txtAddStockQty').val());
+    if (!barcode) { await swalWarning('กรุณาเลือก Barcode'); return; }
+    if (!qty || qty <= 0) { await swalWarning('กรุณากรอกจำนวนที่ถูกต้อง'); return; }
+    // TODO: เชื่อม backend
+    await swalWarning('ยังไม่ได้เชื่อม backend');
 }

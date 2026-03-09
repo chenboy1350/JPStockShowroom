@@ -3,7 +3,6 @@
 <div class="container-fluid">
     <style>
         #tab-receive-billing.active  { background-color: var(--bs-primary); color: #fff; }
-        #tab-receive-export.active   { background-color: var(--bs-success); color: #fff; }
         #tab-receive-packing.active  { background-color: var(--bs-warning); color: #1f2d3d; }
     </style>
 
@@ -53,13 +52,8 @@
                         </button>
                     </li>
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="tab-receive-export" data-bs-toggle="tab" data-bs-target="#content-receive-export" type="button" role="tab" aria-controls="content-receive-export" aria-selected="false">
-                            <i class="fas fa-shipping-fast"></i> ส่งออก
-                        </button>
-                    </li>
-                    <li class="nav-item" role="presentation">
                         <button class="nav-link" id="tab-receive-packing" data-bs-toggle="tab" data-bs-target="#content-receive-packing" type="button" role="tab" aria-controls="content-receive-packing" aria-selected="false">
-                            <i class="fas fa-box"></i> แพ็คกิ้ง
+                            <i class="fas fa-box"></i> Stock Packing
                         </button>
                     </li>
                 </ul>
@@ -104,6 +98,12 @@
                                                             <i class="fas fa-folder"></i> ตรวจสอบ
                                                         </button>
                                                     }
+                                                    @if (r.HasRevButNotAll || r.IsReceived)
+                                                    {
+                                                        <button class="btn btn-danger btn-sm ms-1" onclick="showModalCancelLot('@r.ReceiveNo')">
+                                                            <i class="fas fa-times-circle"></i> ยกเลิกรับเข้า
+                                                        </button>
+                                                    }
                                                 </td>
                                             </tr>
                                         }
@@ -114,25 +114,6 @@
                                             <td colspan="5" class="text-center text-muted">ไม่พบข้อมูล</td>
                                         </tr>
                                     }
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-
-
-                    <div class="tab-pane fade" id="content-receive-export" role="tabpanel" aria-labelledby="tab-receive-export">
-                        <div class="table-responsive" style="height:75vh;">
-                            <table id="tbl-export" class="table table-head-fixed text-nowrap table-packed-custom" style="overflow: auto !important;">
-                                <thead>
-                                    <tr>
-                                        <th class="text-start">#</th>
-                                        <th class="text-start">เลขที่ใบส่ง</th>
-                                        <th class="text-start">วันที่ส่ง</th>
-                                        <th class="text-start">สถานะ</th>
-                                        <th class="text-center"></th>
-                                    </tr>
-                                </thead>
-                                <tbody id="tbl-export-body">
                                 </tbody>
                             </table>
                         </div>

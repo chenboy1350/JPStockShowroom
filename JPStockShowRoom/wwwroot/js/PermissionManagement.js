@@ -1,4 +1,21 @@
-﻿$(document).ready(function () {
+﻿function searchPermission() {
+    const keyword = $('#txtSearchUsername').val().trim().toLowerCase();
+    $('#userTableBody tr').each(function () {
+        const username = $(this).data('username') || '';
+        $(this).toggle(!keyword || username.includes(keyword));
+    });
+}
+
+function clearPermissionSearch() {
+    $('#txtSearchUsername').val('');
+    $('#userTableBody tr').show();
+}
+
+$(document).ready(function () {
+    $('#txtSearchUsername').on('keydown', function (e) {
+        if (e.key === 'Enter') searchPermission();
+    });
+
     $(document).on("click", "#btnConfirmEditPermission", async function () {
 
         const userId = parseInt($("#hddUserId").val());

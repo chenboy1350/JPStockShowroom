@@ -9,24 +9,18 @@ namespace JPStockShowRoom.Data.SWDbContext.Entities;
 public partial class Break
 {
     [Key]
-    [Column("BreakID")]
-    public int BreakId { get; set; }
-
-    [Column("StockID")]
-    public int StockId { get; set; }
-
-    [Column("BreakDescriptionID")]
-    public int BreakDescriptionId { get; set; }
-
-    [Column(TypeName = "decimal(18, 1)")]
-    public decimal BreakQty { get; set; }
-
-    public bool IsReported { get; set; }
+    [StringLength(50)]
+    [Unicode(false)]
+    public string BreakNo { get; set; } = null!;
 
     public bool IsActive { get; set; }
 
+    public int? CreateBy { get; set; }
+
     [Column(TypeName = "datetime")]
     public DateTime? CreateDate { get; set; }
+
+    public int? UpdatedBy { get; set; }
 
     [Column(TypeName = "datetime")]
     public DateTime? UpdateDate { get; set; }

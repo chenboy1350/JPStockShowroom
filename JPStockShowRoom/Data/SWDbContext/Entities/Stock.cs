@@ -18,8 +18,6 @@ public partial class Stock
     [Unicode(false)]
     public string ReceiveNo { get; set; } = null!;
 
-    public int ReceiveFrom { get; set; }
-
     [StringLength(50)]
     [Unicode(false)]
     public string CustCode { get; set; } = null!;

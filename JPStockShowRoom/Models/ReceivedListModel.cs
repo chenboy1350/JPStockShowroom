@@ -16,6 +16,7 @@
         public string CustPCode { get; set; } = string.Empty;
         public int AssignmentID { get; set; } = 0;
         public bool IsReceived { get; set; } = false;
+        public bool IsInStock { get; set; } = false;
         public bool HasRevButNotAll { get; set; } = false;
         public string Mdate { get; set; } = string.Empty;
         public string CreateDateTH { get; set; } = string.Empty;
@@ -32,6 +33,7 @@
     {
         public int LostID { get; set; } = 0;
         public int BreakID { get; set; } = 0;
+        public string? BreakNo { get; set; }
         public decimal? BreakQty { get; set; }
         public decimal? LostQty { get; set; }
         public string ListGem { get; set; } = string.Empty;
@@ -49,6 +51,7 @@
     {
         public int? ReceivedId { get; set; }
         public int[]? BreakIDs { get; set; }
+        public string? BreakNo { get; set; }
     }
 }
 
