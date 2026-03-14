@@ -12,18 +12,18 @@ namespace JPStockShowRoom.Services.Interface
         Task<TrayModel> CreateTrayAsync(string trayNo, string? description, int createdBy);
         Task<List<TrayItemModel>> GetTrayItemsAsync(int trayId);
         Task<List<StockItemModel>> GetReceivedForTrayAsync(int trayId, string? article);
-        Task AddToTrayAsync(int trayId, Dictionary<int, decimal> items, int userId);
+        Task AddToTrayAsync(int trayId, Dictionary<string, decimal> items, int userId);
         Task RemoveFromTrayAsync(List<int> trayItemIds, int userId);
         Task DeleteTrayAsync(int trayId, int userId);
-        Task BorrowFromStockAsync(int stockId, decimal borrowQty, int borrowedBy);
+        Task BorrowFromStockAsync(string groupKey, decimal borrowQty, int borrowedBy);
         Task ReturnBorrowAsync(int borrowDetailId, int userId);
-        Task<List<BorrowModel>> GetBorrowListAsync(int? stockId);
+        Task<List<BorrowModel>> GetBorrowListAsync(string? groupKey);
         Task<List<string>> GetArticleListAsync();
-        Task WithdrawFromStockAsync(int receivedId, decimal withdrawQty, string? remark, int userId);
+        Task WithdrawFromStockAsync(string groupKey, decimal withdrawQty, string? remark, int userId);
         Task<List<WithdrawalModel>> GetWithdrawalListAsync();
         Task SyncArticlesAsync();
         Task<List<LostAndRepairModel>> GetBreakAsync(BreakAndLostFilterModel filter);
-        Task<BaseResponseModel> AddBreakAsync(int receivedId, double breakQty, int breakDes);
+        Task<BaseResponseModel> AddBreakAsync(string groupKey, double breakQty, int breakDes);
         Task PintedBreakReport(int[]? breakIDs);
         Task<List<BreakDescription>> GetBreakDescriptionsAsync();
         Task<List<BreakDescription>> AddNewBreakDescription(string breakDescription);
@@ -42,7 +42,8 @@ namespace JPStockShowRoom.Services.Interface
         Task<List<BorrowModel>> GetPendingBorrowDetailsAsync(string? article = null, string? edesArt = null, bool? isReturned = null);
         Task<string> CreateBorrowDocumentAsync(int[] detailIds, int userId);
         Task CancelPendingBorrowAsync(int borrowDetailId, int userId);
-        Task<List<BorrowModel>> GetBorrowsByStockIdAsync(int stockId);
+        Task<List<BorrowModel>> GetBorrowsByStockIdAsync(string groupKey);
         Task<List<AddStockItemModel>> SearchAddStockItems(string article, string barcode);
+        Task AddStockAsync(string barcode, decimal qty, int userId);
     }
 }

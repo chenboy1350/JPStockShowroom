@@ -50,6 +50,7 @@
     public class BreakAndLostFilterModel
     {
         public int? ReceivedId { get; set; }
+        public string? GroupKey { get; set; }
         public int[]? BreakIDs { get; set; }
         public string? BreakNo { get; set; }
     }

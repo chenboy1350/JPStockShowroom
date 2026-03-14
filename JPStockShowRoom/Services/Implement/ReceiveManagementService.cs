@@ -761,43 +761,5 @@ namespace JPStockShowRoom.Services.Implement
             }
 
         }
-
-        public async Task SyncAllReceiveHeaderStatusAsync()
-        {
-            var headers = await _jPDbContext.Sphreceive
-                .Include(h => h.Spdreceive)
-                .Where(h => h.Mupdate != true && h.Mdate.Year >= 2025)
-                .ToListAsync();
-
-            foreach (var header in headers)
-            {
-                var detailIds = header.Spdreceive
-                    .Select(d => d.Id)
-                    .ToList();
-
-                if (detailIds.Count == 0) continue;
-
-                var receivedIdSet = await _sPDbContext.Received
-                    .Where(r => r.ReceiveNo == header.ReceiveNo && r.IsReceived && r.IsActive)
-                    .Select(r => r.ReceiveId)
-                    .ToHashSetAsync();
-
-                var stockIdSet = await _sWDbContext.Stock
-                    .Where(r => r.ReceiveNo == header.ReceiveNo && r.IsActive)
-                    .Select(r => r.ReceiveId)
-                    .ToHashSetAsync();
-
-                receivedIdSet.UnionWith(stockIdSet);
-
-                bool isComplete = detailIds.All(id => receivedIdSet.Contains(id));
-
-                if (isComplete)
-                {
-                    header.Mupdate = true;
-                }
-            }
-
-            await _jPDbContext.SaveChangesAsync();
-        }
     }
 }

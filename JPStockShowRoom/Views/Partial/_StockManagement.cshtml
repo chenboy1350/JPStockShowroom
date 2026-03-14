@@ -121,8 +121,8 @@
                         <button class="btn btn-danger btn-sm shadow-sm" onclick="showModalBreak(null)" title="รายการส่งซ่อมทั้งหมด">
                             <i class="fas fa-hammer"></i> ส่งซ่อม
                         </button>
-                        <button class="btn btn-danger btn-sm shadow-sm" onclick="showModalAddStock(null)" title="เพิ่มสินค้าเข้า stock โดยผู้ดูแลระบบ">
-                            <i class="fas fa-hammer"></i> เพิ่มสินค้า
+                        <button class="btn btn-info btn-sm shadow-sm @(ViewBag.CurrentUserId == 1 || ViewBag.CurrentUserId == 28 ? "" : "d-none")" onclick="showModalAddStock(null)" title="เพิ่มสินค้าเข้า stock โดยผู้ดูแลระบบ">
+                            <i class="fas fa-plus"></i> เพิ่มสินค้า
                         </button>
                     </div>
                     <button class="btn btn-primary btn-sm ml-2 shadow-sm d-none" id="btnShowTray" onclick="toggleTrayPanel()" title="แสดง Tray">

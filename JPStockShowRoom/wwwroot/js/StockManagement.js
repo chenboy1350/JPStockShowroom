@@ -186,7 +186,7 @@ $(document).ready(function () {
         await swalConfirm(
             `ต้องการเพิ่ม รายการชำรุด จำนวน ${breakQty} ชิ้น ใช่หรือไม่`, "ยืนยันการเพิ่ม รายการชำรุด", async () => {
                 const formData = new FormData();
-                formData.append("receivedId", stockId);
+                formData.append("groupKey", stockId);
                 formData.append("breakQty", breakQty);
                 formData.append("breakDes", breakDes);
                 $.ajax({
@@ -400,7 +400,8 @@ function renderStockTable() {
 
         if (_activeStockTab === 'pending') {
             statusBadge = `<span class="badge badge-warning">รอลงทะเบียน</span>`;
-            actionBtn = '';
+            const breakBtn = (r.isFromSP || r.isAdminAdded) ? '' : `<button class="btn btn-warning btn-sm w-100" onclick="showBreakAdd('${r.groupKey}')" title="ส่งซ่อม"><i class="fas fa-hammer"></i> ส่งซ่อม</button>`;
+            actionBtn = breakBtn ? `<div class="d-flex flex-column gap-1 align-items-center">${breakBtn}</div>` : '';
         } else if (!r.isActive) {
             statusBadge = `<span class="badge badge-secondary">เบิกออกหมดแล้ว</span>`;
             actionBtn = '';
@@ -419,29 +420,29 @@ function renderStockTable() {
                 statusBadge = `<div class="d-flex flex-column gap-1 align-items-center">${badges}</div>`;
             }
 
-            const breakBtn = r.isFromSP ? '' : `<button class="btn btn-warning btn-sm w-100" onclick="showBreakAdd(${r.receivedId})" title="ส่งซ่อม">
+            const breakBtn = (r.isFromSP || r.isAdminAdded) ? '' : `<button class="btn btn-warning btn-sm w-100" onclick="showBreakAdd('${r.groupKey}')" title="ส่งซ่อม">
                         <i class="fas fa-hammer"></i> ส่งซ่อม
                     </button>`;
 
             const returnBtn = r.borrowCount > 0
-                ? `<button class="btn btn-primary btn-sm w-100" onclick="showReturnBorrow(${r.receivedId})" title="คืนสินค้า">
+                ? `<button class="btn btn-primary btn-sm w-100" onclick="showReturnBorrow('${r.groupKey}')" title="คืนสินค้า">
                         <i class="fas fa-undo"></i> คืน
                     </button>`
                 : '';
 
             const borrowableQty = r.ttQty - r.borrowedQty;
             const borrowBtn = borrowableQty > 0
-                ? `<button class="btn btn-success btn-sm w-100" onclick="borrowItem(${r.receivedId}, ${borrowableQty})" title="ยืม">
+                ? `<button class="btn btn-success btn-sm w-100" onclick="borrowItem('${r.groupKey}', ${borrowableQty})" title="ยืม">
                         <i class="fas fa-hand-holding"></i> ยืม
                     </button>`
                 : '';
 
             if (r.availableQty > 0) {
                 actionBtn = `<div class="d-flex flex-column gap-1 align-items-center">
-                    <button class="btn btn-info btn-sm w-100" onclick="showAddToTrayReverse(${r.receivedId}, '${html(r.article)}', ${r.availableQty})" title="ลงถาด">
+                    <button class="btn btn-info btn-sm w-100" onclick="showAddToTrayReverse('${r.groupKey}', '${html(r.article)}', ${r.availableQty})" title="ลงถาด">
                         <i class="fas fa-inbox"></i> ลงถาด
                     </button>
-                    <button class="btn btn-danger btn-sm w-100" onclick="withdrawStock(${r.receivedId}, ${r.availableQty}, ${r.ttWg})" title="เบิกออก">
+                    <button class="btn btn-danger btn-sm w-100" onclick="withdrawStock('${r.groupKey}', ${r.availableQty}, ${r.ttWg})" title="เบิกออก">
                         <i class="fas fa-file-export"></i> เบิก
                     </button>
                     ${breakBtn}
@@ -458,7 +459,7 @@ function renderStockTable() {
         }
 
         return `
-                    <tr data-received-id="${r.receivedId}">
+                    <tr data-group-key="${r.groupKey}">
                         <td>
                             <div class="image-zoom-container">
                                 <img class="imgOrderLot" src="${urlGetImage}?filename=${encodeURIComponent(r.fileName)}" width="80" height="80" alt="Product Image">
@@ -765,7 +766,7 @@ async function borrowItem(stockId, maxQty) {
     $.ajax({
         url: urlBorrowFromStock,
         type: 'POST',
-        data: { stockId: stockId, borrowQty: borrowQty },
+        data: { groupKey: stockId, borrowQty: borrowQty },
         success: function () {
             $('#loadingIndicator').hide();
             findStock();
@@ -829,7 +830,7 @@ function showBorrowList(stockId) {
     $.ajax({
         url: urlGetBorrowList,
         method: 'GET',
-        data: { stockId: stockId || null },
+        data: { groupKey: stockId || null },
         success: function (borrows) {
             tbody.empty();
 
@@ -922,7 +923,7 @@ function loadBorrowsByStock(stockId) {
     $.ajax({
         url: urlGetBorrowsByStockId,
         method: 'GET',
-        data: { stockId: stockId },
+        data: { groupKey: stockId },
         success: function (borrows) {
             tbody.empty();
 
@@ -1036,7 +1037,7 @@ async function withdrawStock(receivedId, maxQty, maxWg) {
     $('#loadingIndicator').show();
 
     const formData = new FormData();
-    formData.append('receivedId', receivedId);
+    formData.append('groupKey', receivedId);
     formData.append('withdrawQty', formValues.qty);
     if (formValues.remark) formData.append('remark', formValues.remark);
 
@@ -1252,7 +1253,7 @@ async function printBreakToPDF() {
     }
 
     let model = {
-        ReceivedId: stockId ? parseInt(stockId) : null,
+        GroupKey: stockId || null,
         BreakIDs: breakIDs
     };
 
@@ -1304,7 +1305,7 @@ async function showModalBreak(receivedId, article) {
     modal.modal('show');
 
     let model = {
-        ReceivedId: receivedId ? parseInt(receivedId) : null,
+        GroupKey: receivedId || null,
     };
 
     $.ajax({
@@ -1449,6 +1450,21 @@ async function confirmAddStock() {
     const qty = parseFloat($('#txtAddStockQty').val());
     if (!barcode) { await swalWarning('กรุณาเลือก Barcode'); return; }
     if (!qty || qty <= 0) { await swalWarning('กรุณากรอกจำนวนที่ถูกต้อง'); return; }
-    // TODO: เชื่อม backend
-    await swalWarning('ยังไม่ได้เชื่อม backend');
+    $('#loadingIndicator').show();
+    $.ajax({
+        url: urlAddStock,
+        type: 'POST',
+        data: { barcode: barcode, qty: qty },
+        success: function () {
+            $('#loadingIndicator').hide();
+            $('#modal-add-stock').modal('hide');
+            swalToastSuccess('เพิ่มสินค้าเข้า Stock เรียบร้อย');
+            findStock();
+        },
+        error: async function (xhr) {
+            $('#loadingIndicator').hide();
+            const msg = xhr.responseJSON?.message || 'เกิดข้อผิดพลาด';
+            await swalWarning(msg);
+        }
+    });
 }

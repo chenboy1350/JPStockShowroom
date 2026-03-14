@@ -51,7 +51,6 @@ namespace JPStockShowRoom.Controllers
         [Authorize]
         public async Task<IActionResult> ReceiveManagement()
         {
-            await _receiveManagementService.SyncAllReceiveHeaderStatusAsync();
             var result = await _receiveManagementService.GetTopJPReceivedAsync(null, null, null);
             return PartialView("~/Views/Partial/_ReceiveManagment.cshtml", result);
         }
@@ -371,6 +370,7 @@ namespace JPStockShowRoom.Controllers
             ViewBag.BreakDescriptions = await _stockManagementService.GetBreakDescriptionsAsync();
             ViewBag.ProductTypes = await _stockManagementService.GetProductTypesAsync();
             ViewBag.ConvertedItems = convertedItems;
+            ViewBag.CurrentUserId = User.GetUserId() ?? 0;
             return PartialView("~/Views/Partial/_StockManagement.cshtml");
         }
 
@@ -429,7 +429,7 @@ namespace JPStockShowRoom.Controllers
             try
             {
                 var userId = User.GetUserId() ?? 0;
-                var items = System.Text.Json.JsonSerializer.Deserialize<Dictionary<int, decimal>>(itemsJson);
+                var items = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, decimal>>(itemsJson);
 
                 if (items == null || !items.Any())
                 {
@@ -455,10 +455,10 @@ namespace JPStockShowRoom.Controllers
 
         [Authorize]
         [HttpPost]
-        public async Task<IActionResult> BorrowFromStock(int stockId, decimal borrowQty)
+        public async Task<IActionResult> BorrowFromStock(string groupKey, decimal borrowQty)
         {
             var userId = User.GetUserId() ?? 0;
-            await _stockManagementService.BorrowFromStockAsync(stockId, borrowQty, userId);
+            await _stockManagementService.BorrowFromStockAsync(groupKey, borrowQty, userId);
             return Ok(new { message = "ยืมสินค้าเรียบร้อย" });
         }
 
@@ -482,26 +482,26 @@ namespace JPStockShowRoom.Controllers
 
         [Authorize]
         [HttpGet]
-        public async Task<IActionResult> GetBorrowList(int? stockId)
+        public async Task<IActionResult> GetBorrowList(string? groupKey)
         {
-            var result = await _stockManagementService.GetBorrowListAsync(stockId);
+            var result = await _stockManagementService.GetBorrowListAsync(groupKey);
             return Json(result);
         }
 
         [Authorize]
         [HttpGet]
-        public async Task<IActionResult> GetBorrowsByStockId(int stockId)
+        public async Task<IActionResult> GetBorrowsByStockId(string groupKey)
         {
-            var result = await _stockManagementService.GetBorrowsByStockIdAsync(stockId);
+            var result = await _stockManagementService.GetBorrowsByStockIdAsync(groupKey);
             return Json(result);
         }
 
         [Authorize]
         [HttpPost]
-        public async Task<IActionResult> WithdrawFromStock(int receivedId, decimal withdrawQty, string? remark)
+        public async Task<IActionResult> WithdrawFromStock(string groupKey, decimal withdrawQty, string? remark)
         {
             var userId = User.GetUserId() ?? 0;
-            await _stockManagementService.WithdrawFromStockAsync(receivedId, withdrawQty, remark, userId);
+            await _stockManagementService.WithdrawFromStockAsync(groupKey, withdrawQty, remark, userId);
             return Ok(new { message = "เบิกสินค้าออกเรียบร้อย" });
         }
 
@@ -578,6 +578,27 @@ namespace JPStockShowRoom.Controllers
             return Json(result);
         }
 
+        [Authorize]
+        [HttpPost]
+        public async Task<IActionResult> AddStock(string barcode, decimal qty)
+        {
+            try
+            {
+                var userId = User.GetUserId() ?? 0;
+                await _stockManagementService.AddStockAsync(barcode, qty, userId);
+                return Ok(new { message = "เพิ่มสินค้าเข้า Stock เรียบร้อย" });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "AddStock failed: {Message}", ex.Message);
+                return StatusCode(500, new { message = ex.Message });
+            }
+        }
+
         #endregion
 
         [HttpGet]
@@ -615,11 +636,11 @@ namespace JPStockShowRoom.Controllers
 
         [HttpPost]
         [Authorize]
-        public async Task<IActionResult> AddBreak(int receivedId, double breakQty, int breakDes)
+        public async Task<IActionResult> AddBreak(string groupKey, double breakQty, int breakDes)
         {
             try
             {
-                var result = await _stockManagementService.AddBreakAsync(receivedId, breakQty, breakDes);
+                var result = await _stockManagementService.AddBreakAsync(groupKey, breakQty, breakDes);
                 return Ok(result);
             }
             catch (Exception ex)

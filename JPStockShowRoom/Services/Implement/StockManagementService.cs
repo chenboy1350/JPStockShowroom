@@ -10,11 +10,13 @@ using System.Globalization;
 
 namespace JPStockShowRoom.Services.Implement
 {
-    public class StockManagementService(SWDbContext sWDbContext, SPDbContext sPDbContext, JPDbContext jPDbContext) : IStockManagementService
+    public class StockManagementService(SWDbContext sWDbContext, SPDbContext sPDbContext, JPDbContext jPDbContext, IPISService pISService) : IStockManagementService
     {
         private readonly SWDbContext _sWDbContext = sWDbContext;
         private readonly SPDbContext _sPDbContext = sPDbContext;
         private readonly JPDbContext _jPDbContext = jPDbContext;
+        private readonly IPISService _pISService = pISService;
+
 
         public async Task<List<StockItemModel>> GetStockListAsync(string? article, string? edesArt = null, string? unit = null)
         {
@@ -70,42 +72,59 @@ namespace JPStockShowRoom.Services.Implement
                 .Select(s => s.Doc)
                 .ToHashSetAsync();
 
-            var list = stocks.Select(s =>
-            {
-                var inTrayQty = inTrayQtys.GetValueOrDefault(s.StockId);
-                var trayNos = stockToTrayNos.GetValueOrDefault(s.StockId) ?? string.Empty;
+            var withdrawnSet = withdrawnStockIds.ToHashSet();
 
-                return new StockItemModel
+            var list = stocks
+                .GroupBy(s => new { s.Article, s.Barcode, s.ListGem, s.EdesFn })
+                .Select(g =>
                 {
-                    ReceivedId = s.StockId,
-                    ReceiveNo = s.ReceiveNo,
-                    LotNo = s.LotNo,
-                    Barcode = s.Barcode,
-                    Article = s.Article ?? string.Empty,
-                    TempArticle = s.TempArticle,
-                    OrderNo = s.OrderNo,
-                    CustCode = s.CustCode,
-                    ListGem = s.ListGem ?? string.Empty,
-                    TtQty = s.TtQty,
-                    AvailableQty = s.TtQty - inTrayQty - (stockBorrowData.TryGetValue(s.StockId, out var bdAvail) ? bdAvail.TotalQty : 0),
-                    InTrayQty = inTrayQty,
-                    TtWg = s.TtWg,
-                    EDesFn = s.EdesFn ?? string.Empty,
-                    IsInTray = stockToTrayNos.ContainsKey(s.StockId),
-                    TrayNo = trayNos,
-                    IsWithdrawn = withdrawnStockIds.Contains(s.StockId),
-                    IsRepairing = s.IsRepairing,
-                    BorrowCount = stockBorrowData.TryGetValue(s.StockId, out var bd) ? bd.Count : 0,
-                    BorrowedQty = stockBorrowData.TryGetValue(s.StockId, out var bd2) ? bd2.TotalQty : 0,
-                    CreateDate = s.CreateDate?.ToString("dd-MM-yyyy", new CultureInfo("th-TH")) ?? string.Empty,
-                    FileName = (s.ImgPath ?? string.Empty).Split("\\", StringSplitOptions.None).LastOrDefault() ?? string.Empty,
-                    ImgPath = s.ImgPath ?? string.Empty,
-                    EDesArt = s.EdesArt ?? string.Empty,
-                    Unit = s.Unit ?? string.Empty,
-                    IsActive = s.IsActive,
-                    IsFromSP = spReceiveNos.Contains(s.ReceiveNo)
-                };
-            }).ToList();
+                    var sources = g.OrderBy(s => s.CreateDate).ToList();
+                    var groupKey = BuildGroupKey(g.Key.Article, g.Key.Barcode, g.Key.ListGem, g.Key.EdesFn);
+
+                    decimal totalQty      = sources.Sum(s => s.TtQty);
+                    double  totalWg       = sources.Sum(s => s.TtWg);
+                    decimal totalInTray   = sources.Sum(s => inTrayQtys.GetValueOrDefault(s.StockId));
+                    decimal totalBorrowed = sources.Sum(s => stockBorrowData.TryGetValue(s.StockId, out var bdA) ? bdA.TotalQty : 0);
+                    int totalBorrowCount  = sources.Sum(s => stockBorrowData.TryGetValue(s.StockId, out var bdB) ? bdB.Count : 0);
+
+                    var allTrayNos = sources
+                        .SelectMany(s => stockToTrayNos.TryGetValue(s.StockId, out var tn) ? tn.Split(", ") : Array.Empty<string>())
+                        .Distinct().OrderBy(n => n).ToList();
+
+                    var rep = sources.First();
+                    return new StockItemModel
+                    {
+                        ReceivedId   = 0,
+                        GroupKey     = groupKey,
+                        Article      = g.Key.Article  ?? string.Empty,
+                        TempArticle  = sources.Select(s => s.TempArticle).FirstOrDefault(t => t != null),
+                        Barcode      = g.Key.Barcode  ?? string.Empty,
+                        ListGem      = g.Key.ListGem  ?? string.Empty,
+                        EDesFn       = g.Key.EdesFn   ?? string.Empty,
+                        EDesArt      = rep.EdesArt    ?? string.Empty,
+                        Unit         = rep.Unit,
+                        OrderNo      = rep.OrderNo,
+                        CustCode     = rep.CustCode,
+                        LotNo        = rep.LotNo,
+                        ReceiveNo    = rep.ReceiveNo,
+                        TtQty        = totalQty,
+                        TtWg         = totalWg,
+                        InTrayQty    = totalInTray,
+                        AvailableQty = totalQty - totalInTray - totalBorrowed,
+                        BorrowedQty  = totalBorrowed,
+                        BorrowCount  = totalBorrowCount,
+                        IsInTray     = totalInTray > 0,
+                        TrayNo       = string.Join(", ", allTrayNos),
+                        IsWithdrawn  = sources.Any(s => withdrawnSet.Contains(s.StockId)),
+                        IsRepairing  = sources.Any(s => s.IsRepairing),
+                        IsActive     = sources.Any(s => s.IsActive && s.TtQty > 0),
+                        ImgPath      = rep.ImgPath ?? string.Empty,
+                        FileName     = (rep.ImgPath ?? string.Empty).Split("\\", StringSplitOptions.None).LastOrDefault() ?? string.Empty,
+                        CreateDate   = rep.CreateDate?.ToString("dd-MM-yyyy", new CultureInfo("th-TH")) ?? string.Empty,
+                        IsFromSP     = sources.Any(s => spReceiveNos.Contains(s.ReceiveNo)),
+                        IsAdminAdded = sources.All(s => s.ReceiveNo == "ADMIN")
+                    };
+                }).ToList();
 
             return list;
         }
@@ -415,60 +434,63 @@ namespace JPStockShowRoom.Services.Implement
             return list;
         }
 
-        public async Task AddToTrayAsync(int trayId, Dictionary<int, decimal> items, int userId)
+        public async Task AddToTrayAsync(int trayId, Dictionary<string, decimal> items, int userId)
         {
             var tray = await _sWDbContext.Tray.FirstOrDefaultAsync(t => t.TrayId == trayId && t.IsActive);
             if (tray == null) return;
 
             var now = DateTime.Now;
-            var stockIds = items.Keys.ToList();
 
-            var stocks = await _sWDbContext.Stock
-                .Where(s => stockIds.Contains(s.StockId) && s.IsActive)
-                .ToListAsync();
-
-            var inTrayQtys = await _sWDbContext.TrayItem
-                .Where(ti => ti.IsActive && stockIds.Contains(ti.StockId))
-                .GroupBy(ti => ti.StockId)
-                .Select(g => new { StockId = g.Key, Qty = g.Sum(ti => ti.Qty) })
-                .ToDictionaryAsync(x => x.StockId, x => x.Qty);
-
-            foreach (var item in items)
+            foreach (var (keyStr, requestedQty) in items)
             {
-                var stockId = item.Key;
-                var qtyToAdd = item.Value;
-
-                var stock = stocks.FirstOrDefault(s => s.StockId == stockId);
-                if (stock == null) continue;
-
-                var inTrayQty = inTrayQtys.GetValueOrDefault(stockId);
-                var availableQty = stock.TtQty - inTrayQty;
-
-                if (qtyToAdd > availableQty) qtyToAdd = availableQty;
-                if (qtyToAdd <= 0) continue;
-
-                double wgToAdd = stock.TtQty > 0
-                    ? (double)(qtyToAdd / stock.TtQty) * stock.TtWg
-                    : 0;
-
-                _sWDbContext.TrayItem.Add(new TrayItem
+                if (int.TryParse(keyStr, out int directStockId))
                 {
-                    TrayId = trayId,
-                    StockId = stockId,
-                    Qty = qtyToAdd,
-                    Wg = wgToAdd,
-                    IsActive = true,
-                    CreatedBy = userId,
-                    CreateDate = now,
-                    UpdateDate = now,
-                    UpdatedBy = userId
-                });
+                    await AddQtyToTrayForStockAsync(trayId, directStockId, requestedQty, userId, now);
+                }
+                else
+                {
+                    var sources = await ResolveGroupKeyAsync(keyStr);
+                    decimal remaining = requestedQty;
+                    foreach (var src in sources)
+                    {
+                        if (remaining <= 0) break;
+                        var inTrayQty = await _sWDbContext.TrayItem
+                            .Where(ti => ti.IsActive && ti.StockId == src.StockId)
+                            .SumAsync(ti => ti.Qty);
+                        var available = src.TtQty - inTrayQty;
+                        if (available <= 0) continue;
+                        var deduct = Math.Min(remaining, available);
+                        await AddQtyToTrayForStockAsync(trayId, src.StockId, deduct, userId, now);
+                        remaining -= deduct;
+                    }
+                }
             }
 
             tray.UpdateDate = now;
             tray.UpdatedBy = userId;
-
             await _sWDbContext.SaveChangesAsync();
+        }
+
+        private async Task AddQtyToTrayForStockAsync(int trayId, int stockId, decimal qty, int userId, DateTime now)
+        {
+            var stock = await _sWDbContext.Stock.FirstOrDefaultAsync(s => s.StockId == stockId && s.IsActive);
+            if (stock == null) return;
+
+            var inTrayQty = await _sWDbContext.TrayItem
+                .Where(ti => ti.IsActive && ti.StockId == stockId)
+                .SumAsync(ti => ti.Qty);
+
+            var availableQty = stock.TtQty - inTrayQty;
+            if (qty > availableQty) qty = availableQty;
+            if (qty <= 0) return;
+
+            double wgToAdd = stock.TtQty > 0 ? (double)(qty / stock.TtQty) * stock.TtWg : 0;
+
+            _sWDbContext.TrayItem.Add(new TrayItem
+            {
+                TrayId = trayId, StockId = stockId, Qty = qty, Wg = wgToAdd,
+                IsActive = true, CreatedBy = userId, CreateDate = now, UpdateDate = now, UpdatedBy = userId
+            });
         }
 
         public async Task RemoveFromTrayAsync(List<int> trayItemIds, int userId)
@@ -534,7 +556,31 @@ namespace JPStockShowRoom.Services.Implement
             await _sWDbContext.SaveChangesAsync();
         }
 
-        public async Task BorrowFromStockAsync(int stockId, decimal borrowQty, int borrowedBy)
+        public async Task BorrowFromStockAsync(string groupKey, decimal borrowQty, int borrowedBy)
+        {
+            if (int.TryParse(groupKey, out int singleStockId))
+            {
+                await BorrowFromSingleStockAsync(singleStockId, borrowQty, borrowedBy);
+                return;
+            }
+
+            var sources = await ResolveGroupKeyAsync(groupKey);
+            decimal remaining = borrowQty;
+            foreach (var src in sources)
+            {
+                if (remaining <= 0) break;
+                var currentBorrowed = await _sWDbContext.BorrowDetail
+                    .Where(b => b.StockId == src.StockId && !b.IsReturned)
+                    .SumAsync(b => b.BorrowQty);
+                var borrowable = src.TtQty - currentBorrowed;
+                if (borrowable <= 0) continue;
+                var deduct = Math.Min(remaining, borrowable);
+                await BorrowFromSingleStockAsync(src.StockId, deduct, borrowedBy);
+                remaining -= deduct;
+            }
+        }
+
+        private async Task BorrowFromSingleStockAsync(int stockId, decimal borrowQty, int borrowedBy)
         {
             var stock = await _sWDbContext.Stock
                 .FirstOrDefaultAsync(s => s.StockId == stockId && s.IsActive);
@@ -688,18 +734,48 @@ namespace JPStockShowRoom.Services.Implement
             await _sWDbContext.SaveChangesAsync();
         }
 
-        public async Task<List<BorrowModel>> GetBorrowListAsync(int? stockId)
+        public async Task<List<BorrowModel>> GetBorrowListAsync(string? groupKey)
         {
             var query = _sWDbContext.BorrowDetail.Where(b => !b.IsReturned).AsQueryable();
 
-            if (stockId.HasValue)
-                query = query.Where(b => b.StockId == stockId.Value);
+            if (!string.IsNullOrEmpty(groupKey))
+            {
+                var stockIds = await ResolveGroupKeyToStockIdsAsync(groupKey);
+                query = query.Where(b => stockIds.Contains(b.StockId));
+            }
 
             var borrows = await query.ToListAsync();
             return await MapBorrowDetailsAsync(borrows);
         }
 
-        public async Task WithdrawFromStockAsync(int receivedId, decimal withdrawQty, string? remark, int userId)
+        public async Task WithdrawFromStockAsync(string groupKey, decimal withdrawQty, string? remark, int userId)
+        {
+            if (int.TryParse(groupKey, out int singleStockId))
+            {
+                await WithdrawFromSingleStockAsync(singleStockId, withdrawQty, remark, userId);
+                return;
+            }
+
+            var sources = await ResolveGroupKeyAsync(groupKey);
+            decimal remaining = withdrawQty;
+            foreach (var src in sources)
+            {
+                if (remaining <= 0) break;
+                var inTrayQty = await _sWDbContext.TrayItem
+                    .Where(ti => ti.StockId == src.StockId && ti.IsActive)
+                    .SumAsync(ti => ti.Qty);
+                var borrowedQty = await _sWDbContext.BorrowDetail
+                    .Where(b => b.StockId == src.StockId && !b.IsReturned)
+                    .SumAsync(b => b.BorrowQty);
+                var available = src.TtQty - inTrayQty - borrowedQty;
+                if (available <= 0) continue;
+                var deduct = Math.Min(remaining, available);
+                await WithdrawFromSingleStockAsync(src.StockId, deduct, remark, userId);
+                remaining -= deduct;
+            }
+        }
+
+        private async Task WithdrawFromSingleStockAsync(int receivedId, decimal withdrawQty, string? remark, int userId)
         {
             var stock = await _sWDbContext.Stock.FirstOrDefaultAsync(s => s.StockId == receivedId && s.IsActive);
             if (stock == null) return;
@@ -708,7 +784,11 @@ namespace JPStockShowRoom.Services.Implement
                 .Where(ti => ti.StockId == receivedId && ti.IsActive)
                 .SumAsync(ti => ti.Qty);
 
-            var availableQty = stock.TtQty - inTrayQty;
+            var borrowedQty = await _sWDbContext.BorrowDetail
+                .Where(b => b.StockId == receivedId && !b.IsReturned)
+                .SumAsync(b => b.BorrowQty);
+
+            var availableQty = stock.TtQty - inTrayQty - borrowedQty;
             if (withdrawQty <= 0 || withdrawQty > availableQty) return;
 
             double withdrawWg = stock.TtQty > 0
@@ -792,7 +872,12 @@ namespace JPStockShowRoom.Services.Implement
         {
             var query = _sWDbContext.BreakDetail.Where(b => b.IsActive).AsQueryable();
 
-            if (breakAndLostFilterModel.ReceivedId.HasValue)
+            if (!string.IsNullOrEmpty(breakAndLostFilterModel.GroupKey))
+            {
+                var filterStockIds = await ResolveGroupKeyToStockIdsAsync(breakAndLostFilterModel.GroupKey);
+                query = query.Where(b => filterStockIds.Contains(b.StockId));
+            }
+            else if (breakAndLostFilterModel.ReceivedId.HasValue)
                 query = query.Where(b => b.StockId == breakAndLostFilterModel.ReceivedId.Value);
 
             if (breakAndLostFilterModel.BreakIDs != null && breakAndLostFilterModel.BreakIDs.Length > 0)
@@ -842,58 +927,66 @@ namespace JPStockShowRoom.Services.Implement
             }).ToList();
         }
 
-        public async Task<BaseResponseModel> AddBreakAsync(int stockID, double breakQty, int breakDes)
+        public async Task<BaseResponseModel> AddBreakAsync(string groupKey, double breakQty, int breakDes)
         {
-            if (stockID <= 0)
-                throw new ArgumentException("ReceivedId ไม่ถูกต้อง", nameof(stockID));
+            if (string.IsNullOrEmpty(groupKey))
+                throw new ArgumentException("groupKey ไม่ถูกต้อง", nameof(groupKey));
 
             if (breakQty <= 0)
                 throw new ArgumentException("BreakQty ต้องมากกว่า 0", nameof(breakQty));
 
-            var stock = await _sWDbContext.Stock.FirstOrDefaultAsync(r => r.StockId == stockID && r.IsActive);
-            if (stock == null)
-                throw new KeyNotFoundException($"ไม่พบ stockID: {stockID}");
+            var sources = await ResolveGroupKeyAsync(groupKey);
+            if (sources.Count == 0)
+                throw new KeyNotFoundException($"ไม่พบสินค้าสำหรับ groupKey: {groupKey}");
 
-            if ((double)(stock.TtQty) < breakQty)
-                throw new InvalidOperationException($"จำนวน Break ({breakQty}) มากกว่ายอดในรายการ ({stock.TtQty})");
+            var totalQty = sources.Sum(s => (double)s.TtQty);
+            if (totalQty < breakQty)
+                throw new InvalidOperationException($"จำนวน Break ({breakQty}) มากกว่ายอดรวม ({totalQty})");
 
-            double oldQty = (double)(stock.TtQty);
-            double oldWg = (double)stock.TtWg;
-            double newQty = oldQty - breakQty;
-            double newWg = oldQty > 0 ? (oldWg / oldQty) * newQty : 0;
+            double remaining = breakQty;
 
             await using var transaction = await _sWDbContext.Database.BeginTransactionAsync();
             try
             {
-                _sWDbContext.BreakDetail.Add(new BreakDetail
+                foreach (var stock in sources)
                 {
-                    StockId = stock.StockId,
-                    BreakQty = (decimal)breakQty,
-                    BreakDescriptionId = breakDes,
-                    IsReported = false,
-                    IsActive = true,
-                    CreateDate = DateTime.Now,
-                    UpdateDate = DateTime.Now
-                });
+                    if (remaining <= 0) break;
 
-                stock.TtQty = (decimal)newQty;
-                stock.TtWg = Math.Round(newWg, 2);
-                stock.IsRepairing = true;
-                stock.UpdateDate = DateTime.Now;
+                    double deduct = Math.Min(remaining, (double)stock.TtQty);
+                    double oldQty = (double)stock.TtQty;
+                    double oldWg  = stock.TtWg;
+                    double newQty = oldQty - deduct;
+                    double newWg  = oldQty > 0 ? (oldWg / oldQty) * newQty : 0;
 
-                _sWDbContext.Stock.Update(stock);
+                    _sWDbContext.BreakDetail.Add(new BreakDetail
+                    {
+                        StockId            = stock.StockId,
+                        BreakQty           = (decimal)deduct,
+                        BreakDescriptionId = breakDes,
+                        IsReported         = false,
+                        IsActive           = true,
+                        CreateDate         = DateTime.Now,
+                        UpdateDate         = DateTime.Now
+                    });
 
-                await _sWDbContext.SaveChangesAsync();
+                    stock.TtQty      = (decimal)newQty;
+                    stock.TtWg       = Math.Round(newWg, 2);
+                    stock.IsRepairing = true;
+                    stock.UpdateDate  = DateTime.Now;
+                    _sWDbContext.Stock.Update(stock);
 
-                await UpdateJobBillSendStockAndSpdreceive(stock.BillNumber, stock.ReceiveId, stock.ReceiveNo, (decimal)newQty, (decimal)Math.Round(newWg, 2));
+                    await _sWDbContext.SaveChangesAsync();
+
+                    await UpdateJobBillSendStockAndSpdreceive(
+                        stock.BillNumber, stock.ReceiveId, stock.ReceiveNo,
+                        (decimal)newQty, (decimal)Math.Round(newWg, 2));
+
+                    remaining -= deduct;
+                }
 
                 await transaction.CommitAsync();
 
-                return new BaseResponseModel
-                {
-                    IsSuccess = true,
-                    Message = "เพิ่มรายการชำรุดเรียบร้อย"
-                };
+                return new BaseResponseModel { IsSuccess = true, Message = "เพิ่มรายการชำรุดเรียบร้อย" };
             }
             catch
             {
@@ -1462,10 +1555,16 @@ namespace JPStockShowRoom.Services.Implement
             return borrowNo;
         }
 
-        public async Task<List<BorrowModel>> GetBorrowsByStockIdAsync(int stockId)
+        public async Task<List<BorrowModel>> GetBorrowsByStockIdAsync(string groupKey)
         {
+            List<int> stockIds;
+            if (int.TryParse(groupKey, out int singleId))
+                stockIds = [singleId];
+            else
+                stockIds = await ResolveGroupKeyToStockIdsAsync(groupKey);
+
             var details = await _sWDbContext.BorrowDetail
-                .Where(d => !d.IsReturned && d.StockId == stockId)
+                .Where(d => !d.IsReturned && stockIds.Contains(d.StockId))
                 .ToListAsync();
 
             return await MapBorrowDetailsAsync(details);
@@ -1513,6 +1612,44 @@ namespace JPStockShowRoom.Services.Implement
                     TrayNo = trayNosDict.GetValueOrDefault(d.BorrowDetailId)
                 };
             }).ToList();
+        }
+
+        private static string BuildGroupKey(string? article, string? barcode, string? listGem, string? edesFn)
+            => $"{article ?? ""}|{barcode ?? ""}|{listGem ?? ""}|{edesFn ?? ""}";
+
+        private async Task<List<Data.SWDbContext.Entities.Stock>> ResolveGroupKeyAsync(string groupKey)
+        {
+            var parts = groupKey.Split('|');
+            string article = parts.Length > 0 ? parts[0] : "";
+            string barcode  = parts.Length > 1 ? parts[1] : "";
+            string listGem  = parts.Length > 2 ? parts[2] : "";
+            string edesFn   = parts.Length > 3 ? parts[3] : "";
+
+            return await _sWDbContext.Stock
+                .Where(s => s.IsActive
+                    && (s.Article  ?? "") == article
+                    && (s.Barcode  ?? "") == barcode
+                    && (s.ListGem  ?? "") == listGem
+                    && (s.EdesFn   ?? "") == edesFn)
+                .OrderBy(s => s.CreateDate)
+                .ToListAsync();
+        }
+
+        private async Task<List<int>> ResolveGroupKeyToStockIdsAsync(string groupKey)
+        {
+            var parts = groupKey.Split('|');
+            string article = parts.Length > 0 ? parts[0] : "";
+            string barcode  = parts.Length > 1 ? parts[1] : "";
+            string listGem  = parts.Length > 2 ? parts[2] : "";
+            string edesFn   = parts.Length > 3 ? parts[3] : "";
+
+            return await _sWDbContext.Stock
+                .Where(s => (s.Article  ?? "") == article
+                         && (s.Barcode  ?? "") == barcode
+                         && (s.ListGem  ?? "") == listGem
+                         && (s.EdesFn   ?? "") == edesFn)
+                .Select(s => s.StockId)
+                .ToListAsync();
         }
 
         private async Task<string> GenerateSWBreakNoAsync()
@@ -1727,6 +1864,53 @@ namespace JPStockShowRoom.Services.Implement
             }
 
             return await res.ToListAsync();
+        }
+
+        public async Task AddStockAsync(string barcode, decimal qty, int userId)
+        {
+            var item = await (from cs in _jPDbContext.CpriceSale
+                              join cp in _jPDbContext.Cprofile on cs.Article equals cp.Article
+                              join fn in _jPDbContext.CfnCode on cs.FnCode equals fn.FnCode
+                              where cs.Barcode == barcode
+                              select new
+                              {
+                                  cs.Article,
+                                  cs.ListGem,
+                                  cp.EdesArt,
+                                  fn.EdesFn,
+                                  cs.Picture,
+                                  cp.Eunit
+                              }).FirstOrDefaultAsync() ?? throw new InvalidOperationException($"ไม่พบ Barcode: {barcode}");
+
+            var user = await _pISService.GetUser(new ReqUserModel { UserID = userId }) ?? throw new InvalidOperationException($"ไม่พบผู้ใช้ ID: {userId}");
+            if (user == null) throw new InvalidOperationException($"ไม่พบผู้ใช้ ID: {userId}");
+
+            var now = DateTime.Now;
+            var stock = new Stock
+            {
+                ReceiveId = 0,
+                ReceiveNo = "ADMIN",
+                CustCode = string.Empty,
+                OrderNo = $"Add By {user.FirstOrDefault()?.FirstName}",
+                LotNo = string.Empty,
+                TempArticle = string.Empty,
+                Article = item.Article,
+                Barcode = barcode,
+                ListGem = item.ListGem,
+                Unit = item.Eunit,
+                EdesFn = item.EdesFn,
+                EdesArt = item.EdesArt,
+                BillNumber = 0,
+                ImgPath = item.Picture,
+                TtQty = qty,
+                TtWg = 0,
+                IsActive = true,
+                CreateDate = now,
+                UpdateDate = now,
+            };
+
+            await _sWDbContext.Stock.AddAsync(stock);
+            await _sWDbContext.SaveChangesAsync();
         }
     }
 }

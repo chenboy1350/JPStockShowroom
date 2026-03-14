@@ -3,6 +3,7 @@ namespace JPStockShowRoom.Models
     public class StockItemModel
     {
         public int ReceivedId { get; set; }
+        public string GroupKey { get; set; } = string.Empty;
         public string ReceiveNo { get; set; } = string.Empty;
         public string LotNo { get; set; } = string.Empty;
         public string Barcode { get; set; } = string.Empty;
@@ -31,6 +32,7 @@ namespace JPStockShowRoom.Models
         public string EDesArt { get; set; } = string.Empty;
         public bool IsActive { get; set; } = false;
         public bool IsFromSP { get; set; } = false;
+        public bool IsAdminAdded { get; set; } = false;
     }
 
     public class TrayModel
@@ -210,4 +212,5 @@ namespace JPStockShowRoom.Models
         public string? EdesArt { get; set; }
         public string? EdesFn { get; set; }
     }
+
 }

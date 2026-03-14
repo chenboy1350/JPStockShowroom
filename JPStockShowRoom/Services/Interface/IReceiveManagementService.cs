@@ -16,7 +16,6 @@ namespace JPStockShowRoom.Services.Interface
         Task<List<ConvertedArticleModel>> ConvertZArticlesAsync();
         Task CancelLotItemsAsync(string receiveNo, List<string> orderNos, List<int> receiveIds, int userId);
         Task CancelSPLotItemsAsync(string receiveNo, List<int> receiveIds, int userId);
-        Task SyncAllReceiveHeaderStatusAsync();
     }
 }
 
