@@ -180,7 +180,7 @@ function showModalUpdateLot(receiveNo) {
     modal.data('mode', 'jp');
     const tbody = modal.find('#tbl-received-body');
 
-    tbody.empty().append('<tr><td colspan="10" class="text-center text-muted">กำลังโหลด...</td></tr>');
+    tbody.empty().append('<tr><td colspan="11" class="text-center text-muted">กำลังโหลด...</td></tr>');
 
     modal.find('#txtTitleUpdate').html(
         "<i class='fas fa-folder-plus'></i> รายการนำเข้าใบรับ: " + html(receiveNo)
@@ -203,7 +203,7 @@ function showModalUpdateLot(receiveNo) {
             $('#hddReceiveNo').val(receiveNo);
 
             if (!items || items.length === 0) {
-                tbody.append('<tr><td colspan="10" class="text-center text-muted">ไม่พบข้อมูล</td></tr>');
+                tbody.append('<tr><td colspan="11" class="text-center text-muted">ไม่พบข้อมูล</td></tr>');
                 return;
             }
 
@@ -218,16 +218,17 @@ function showModalUpdateLot(receiveNo) {
                 const lotNoDisplay = isReceived ? `<del>${html(x.lotNo)}</del>` : `<strong>${html(x.lotNo)}</strong>`;
                 const orderNoDisplay = isReceived ? `<del>${html(x.orderNo)}</del>` : html(x.orderNo);
                 const cusCodeDisplay = isReceived ? `<del>${html(x.custCode)}</del>` : html(x.custCode);
+                const listGemDisplay = isReceived ? `<del>${html(x.listGem)}</del>` : html(x.listGem);
                 const edesFnDisplay = isReceived ? `<del>${html(x.edesFn)}</del>` : html(x.edesFn);
                 const articleDisplay = isReceived ? `<del>${html(x.article)}</del>` : html(x.article);
                 const qtyDisplay = isReceived ? `<del>${num(x.ttQty)}</del>` : num(x.ttQty);
                 const wgDisplay = isReceived ? `<del>${num(x.ttWg)}</del>` : num(x.ttWg);
 
                 return `
-                <tr class="${rowClass}" 
-                        data-receive-id="${html(x.receivedID)}" 
-                        data-order-no="${html(x.orderNo)}" 
-                        data-ttqty="${numRaw(x.ttQty)}" 
+                <tr class="${rowClass}"
+                        data-receive-id="${html(x.receivedID)}"
+                        data-order-no="${html(x.orderNo)}"
+                        data-ttqty="${numRaw(x.ttQty)}"
                         data-ttwg="${numRaw(x.ttWg)}">
                     <td class="text-center">${i + 1}</td>
                     <td class="text-center">${cusCodeDisplay}</td>
@@ -235,6 +236,7 @@ function showModalUpdateLot(receiveNo) {
                     <td>${lotNoDisplay}</td>
                     <td class="text-center">${html(x.listNo)}</td>
                     <td>${edesFnDisplay}</td>
+                    <td>${listGemDisplay}</td>
                     <td>${articleDisplay}</td>
                     <td class="text-end">${qtyDisplay}</td>
                     <td class="text-end">${wgDisplay}</td>
@@ -251,7 +253,7 @@ function showModalUpdateLot(receiveNo) {
 
             tbody.append(`
             <tr class="table-secondary fw-bold" id="totalRow">
-                <td colspan="7" class="text-end">รวม</td>
+                <td colspan="8" class="text-end">รวม</td>
                 <td class="text-end" id="sumTtQty">0</td>
                 <td class="text-end" id="sumTtWg">0</td>
                 <td></td>
@@ -281,7 +283,7 @@ function showModalUpdateLot(receiveNo) {
         })
         .fail(function (xhr) {
             tbody.empty().append(
-                `<tr><td colspan="10" class="text-danger text-center">
+                `<tr><td colspan="11" class="text-danger text-center">
             เกิดข้อผิดพลาดในการโหลดข้อมูล (${xhr.status} ${xhr.statusText})
         </td></tr>`
             );
@@ -310,7 +312,7 @@ function showModalCancelLot(receiveNo) {
     modal.data('mode', 'jp');
     const tbody = modal.find('#tbl-cancel-received-body');
 
-    tbody.empty().append('<tr><td colspan="10" class="text-center text-muted">กำลังโหลด...</td></tr>');
+    tbody.empty().append('<tr><td colspan="11" class="text-center text-muted">กำลังโหลด...</td></tr>');
 
     modal.find('#txtTitleCancelUpdate').html(
         "<i class='fas fa-folder-plus'></i> รายการนำเข้าใบรับ: " + html(receiveNo)
@@ -333,7 +335,7 @@ function showModalCancelLot(receiveNo) {
             $('#hddCancelReceiveNo').val(receiveNo);
 
             if (!items || items.length === 0) {
-                tbody.append('<tr><td colspan="10" class="text-center text-muted">ไม่พบข้อมูล</td></tr>');
+                tbody.append('<tr><td colspan="11" class="text-center text-muted">ไม่พบข้อมูล</td></tr>');
                 return;
             }
 
@@ -348,22 +350,24 @@ function showModalCancelLot(receiveNo) {
                 const lotNoDisplay = notInStock ? `<del>${html(x.lotNo)}</del>` : `<strong>${html(x.lotNo)}</strong>`;
                 const orderNoDisplay = html(x.orderNo);
                 const cusCodeDisplay = html(x.custCode);
+                const listGemDisplay = html(x.listGem);
                 const edesFnDisplay = html(x.edesFn);
                 const articleDisplay = html(x.article);
                 const qtyDisplay = num(x.ttQty);
                 const wgDisplay = num(x.ttWg);
 
                 return `
-            <tr class="${rowClass}" 
-                    data-receive-id="${html(x.receivedID)}" 
-                    data-order-no="${html(x.orderNo)}" 
-                    data-ttqty="${numRaw(x.ttQty)}" 
+            <tr class="${rowClass}"
+                    data-receive-id="${html(x.receivedID)}"
+                    data-order-no="${html(x.orderNo)}"
+                    data-ttqty="${numRaw(x.ttQty)}"
                     data-ttwg="${numRaw(x.ttWg)}">
                 <td class="text-center">${i + 1}</td>
                 <td class="text-center">${cusCodeDisplay}</td>
                 <td>${orderNoDisplay}</td>
                 <td>${lotNoDisplay}</td>
                 <td class="text-center">${html(x.listNo)}</td>
+                <td>${listGemDisplay}</td>
                 <td>${edesFnDisplay}</td>
                 <td>${articleDisplay}</td>
                 <td class="text-end">${qtyDisplay}</td>
@@ -381,7 +385,7 @@ function showModalCancelLot(receiveNo) {
 
             tbody.append(`
             <tr class="table-secondary fw-bold" id="totalRow">
-                <td colspan="7" class="text-end">รวม</td>
+                <td colspan="8" class="text-end">รวม</td>
                 <td class="text-end" id="sumTtQty">0</td>
                 <td class="text-end" id="sumTtWg">0</td>
                 <td></td>
@@ -411,7 +415,7 @@ function showModalCancelLot(receiveNo) {
         })
         .fail(function (xhr) {
             tbody.empty().append(
-                `<tr><td colspan="10" class="text-danger text-center">
+                `<tr><td colspan="11" class="text-danger text-center">
                 เกิดข้อผิดพลาดในการโหลดข้อมูล (${xhr.status} ${xhr.statusText})
             </td></tr>`
             );
@@ -440,7 +444,7 @@ function showModalCancelSPLot(receiveNo) {
     modal.data('mode', 'sp');
     const tbody = modal.find('#tbl-cancel-received-body');
 
-    tbody.empty().append('<tr><td colspan="10" class="text-center text-muted">กำลังโหลด...</td></tr>');
+    tbody.empty().append('<tr><td colspan="11" class="text-center text-muted">กำลังโหลด...</td></tr>');
 
     modal.find('#txtTitleCancelUpdate').html(
         "<i class='fas fa-folder-plus'></i> รายการนำเข้าใบรับ: " + html(receiveNo)
@@ -459,7 +463,7 @@ function showModalCancelSPLot(receiveNo) {
             $('#hddCancelReceiveNo').val(receiveNo);
 
             if (!items || items.length === 0) {
-                tbody.append('<tr><td colspan="10" class="text-center text-muted">ไม่พบข้อมูล</td></tr>');
+                tbody.append('<tr><td colspan="11" class="text-center text-muted">ไม่พบข้อมูล</td></tr>');
                 return;
             }
 
@@ -473,6 +477,7 @@ function showModalCancelSPLot(receiveNo) {
                 const lotNoDisplay = isNotReceived ? `<del>${html(x.lotNo)}</del>` : `<strong>${html(x.lotNo)}</strong>`;
                 const orderNoDisplay = isNotReceived ? `<del>${html(x.orderNo)}</del>` : html(x.orderNo);
                 const cusCodeDisplay = isNotReceived ? `<del>${html(x.custCode)}</del>` : html(x.custCode);
+                const listGemDisplay = isNotReceived ? `<del>${html(x.listGem)}</del>` : html(x.listGem);
                 const edesFnDisplay = isNotReceived ? `<del>${html(x.edesFn)}</del>` : html(x.edesFn);
                 const articleDisplay = isNotReceived ? `<del>${html(x.article)}</del>` : html(x.article);
                 const qtyDisplay = isNotReceived ? `<del>${num(x.ttQty)}</del>` : num(x.ttQty);
@@ -489,6 +494,7 @@ function showModalCancelSPLot(receiveNo) {
                 <td>${orderNoDisplay}</td>
                 <td>${lotNoDisplay}</td>
                 <td class="text-center">${html(x.listNo)}</td>
+                <td>${listGemDisplay}</td>
                 <td>${edesFnDisplay}</td>
                 <td>${articleDisplay}</td>
                 <td class="text-end">${qtyDisplay}</td>
@@ -513,7 +519,7 @@ function showModalCancelSPLot(receiveNo) {
         })
         .fail(function (xhr) {
             tbody.empty().append(
-                `<tr><td colspan="10" class="text-danger text-center">
+                `<tr><td colspan="11" class="text-danger text-center">
                 เกิดข้อผิดพลาดในการโหลดข้อมูล (${xhr.status} ${xhr.statusText})
             </td></tr>`
             );
@@ -622,7 +628,7 @@ function showModalSPUpdateLot(receiveNo) {
     modal.data('mode', 'sp');
     const tbody = modal.find('#tbl-received-body');
 
-    tbody.empty().append('<tr><td colspan="10" class="text-center text-muted">กำลังโหลด...</td></tr>');
+    tbody.empty().append('<tr><td colspan="11" class="text-center text-muted">กำลังโหลด...</td></tr>');
     modal.find('#txtTitleUpdate').html("<i class='fas fa-folder-plus'></i> รายการนำเข้าใบรับ: " + html(receiveNo));
     modal.modal('show');
 
@@ -637,7 +643,7 @@ function showModalSPUpdateLot(receiveNo) {
             $('#hddReceiveNo').val(receiveNo);
 
             if (!items || items.length === 0) {
-                tbody.append('<tr><td colspan="10" class="text-center text-muted">ไม่พบข้อมูล</td></tr>');
+                tbody.append('<tr><td colspan="11" class="text-center text-muted">ไม่พบข้อมูล</td></tr>');
                 return;
             }
 
@@ -651,6 +657,7 @@ function showModalSPUpdateLot(receiveNo) {
                 const lotNoDisplay = isReceived ? `<del>${html(x.lotNo)}</del>` : `<strong>${html(x.lotNo)}</strong>`;
                 const orderNoDisplay = isReceived ? `<del>${html(x.orderNo)}</del>` : html(x.orderNo);
                 const cusCodeDisplay = isReceived ? `<del>${html(x.custCode)}</del>` : html(x.custCode);
+                const listGemDisplay = isReceived ? `<del>${html(x.listGem)}</del>` : html(x.listGem);
                 const edesFnDisplay = isReceived ? `<del>${html(x.edesFn)}</del>` : html(x.edesFn);
                 const articleDisplay = isReceived ? `<del>${html(x.article)}</del>` : html(x.article);
                 const qtyDisplay = isReceived ? `<del>${num(x.ttQty)}</del>` : num(x.ttQty);
@@ -668,6 +675,7 @@ function showModalSPUpdateLot(receiveNo) {
                     <td>${lotNoDisplay}</td>
                     <td class="text-center">${html(x.listNo)}</td>
                     <td>${edesFnDisplay}</td>
+                    <td>${listGemDisplay}</td>
                     <td>${articleDisplay}</td>
                     <td class="text-end">${qtyDisplay}</td>
                     <td class="text-end">${wgDisplay}</td>
@@ -684,7 +692,7 @@ function showModalSPUpdateLot(receiveNo) {
         })
         .fail(function (xhr) {
             tbody.empty().append(
-                `<tr><td colspan="10" class="text-danger text-center">เกิดข้อผิดพลาดในการโหลดข้อมูล (${xhr.status} ${xhr.statusText})</td></tr>`
+                `<tr><td colspan="11" class="text-danger text-center">เกิดข้อผิดพลาดในการโหลดข้อมูล (${xhr.status} ${xhr.statusText})</td></tr>`
             );
         });
 }

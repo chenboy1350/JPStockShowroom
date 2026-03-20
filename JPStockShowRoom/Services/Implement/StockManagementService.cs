@@ -1,3 +1,4 @@
+using ClosedXML.Excel;
 using JPStockShowRoom.Data.JPDbContext;
 using JPStockShowRoom.Data.SPDbContext;
 using JPStockShowRoom.Data.SPDbContext.Entities;
@@ -18,7 +19,7 @@ namespace JPStockShowRoom.Services.Implement
         private readonly IPISService _pISService = pISService;
 
 
-        public async Task<List<StockItemModel>> GetStockListAsync(string? article, string? edesArt = null, string? unit = null)
+        public async Task<PagedResult<StockItemModel>> GetStockListAsync(string? article, string? edesArt = null, string? unit = null, int? registrationStatus = null, int page = 1, int pageSize = 20)
         {
             var query = _sWDbContext.Stock.AsQueryable();
 
@@ -126,7 +127,28 @@ namespace JPStockShowRoom.Services.Implement
                     };
                 }).ToList();
 
-            return list;
+            int totalGeneralCount = list.Count(x => !string.IsNullOrEmpty(x.Article));
+            int totalPendingCount = list.Count(x => string.IsNullOrEmpty(x.Article));
+
+            if (registrationStatus.HasValue)
+            {
+                list = registrationStatus == (int)RegistrationStatus.Pending
+                    ? list.Where(x => string.IsNullOrEmpty(x.Article)).ToList()
+                    : list.Where(x => !string.IsNullOrEmpty(x.Article)).ToList();
+            }
+
+            int totalCount = list.Count;
+            var items = list.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+
+            return new PagedResult<StockItemModel>
+            {
+                Items             = items,
+                TotalCount        = totalCount,
+                Page              = page,
+                PageSize          = pageSize,
+                TotalGeneralCount = totalGeneralCount,
+                TotalPendingCount = totalPendingCount,
+            };
         }
 
         public async Task<List<StockItemModel>> GetReportStockListAsync(string? article, string? edesArt = null, string? unit = null)
@@ -748,7 +770,7 @@ namespace JPStockShowRoom.Services.Implement
             return await MapBorrowDetailsAsync(borrows);
         }
 
-        public async Task WithdrawFromStockAsync(string groupKey, decimal withdrawQty, string? remark, int userId)
+        public async Task WithdrawFromStockAsync(string groupKey, decimal withdrawQty, string? remark, int userId, bool isAdminAdded = false)
         {
             if (int.TryParse(groupKey, out int singleStockId))
             {
@@ -756,7 +778,7 @@ namespace JPStockShowRoom.Services.Implement
                 return;
             }
 
-            var sources = await ResolveGroupKeyAsync(groupKey);
+            var sources = await ResolveGroupKeyAsync(groupKey, isAdminAdded);
             decimal remaining = withdrawQty;
             foreach (var src in sources)
             {
@@ -822,6 +844,16 @@ namespace JPStockShowRoom.Services.Implement
                 UpdatedBy = userId
             });
 
+            await _sWDbContext.SaveChangesAsync();
+        }
+
+        public async Task DeleteAdminStockAsync(string groupKey)
+        {
+            var sources = await ResolveGroupKeyAsync(groupKey, isAdminAdded: true);
+            if (sources.Count == 0)
+                throw new KeyNotFoundException("ไม่พบสินค้า ADMIN สำหรับ groupKey นี้");
+
+            _sWDbContext.Stock.RemoveRange(sources);
             await _sWDbContext.SaveChangesAsync();
         }
 
@@ -1617,7 +1649,7 @@ namespace JPStockShowRoom.Services.Implement
         private static string BuildGroupKey(string? article, string? barcode, string? listGem, string? edesFn)
             => $"{article ?? ""}|{barcode ?? ""}|{listGem ?? ""}|{edesFn ?? ""}";
 
-        private async Task<List<Data.SWDbContext.Entities.Stock>> ResolveGroupKeyAsync(string groupKey)
+        private async Task<List<Data.SWDbContext.Entities.Stock>> ResolveGroupKeyAsync(string groupKey, bool? isAdminAdded = null)
         {
             var parts = groupKey.Split('|');
             string article = parts.Length > 0 ? parts[0] : "";
@@ -1625,14 +1657,19 @@ namespace JPStockShowRoom.Services.Implement
             string listGem  = parts.Length > 2 ? parts[2] : "";
             string edesFn   = parts.Length > 3 ? parts[3] : "";
 
-            return await _sWDbContext.Stock
+            var query = _sWDbContext.Stock
                 .Where(s => s.IsActive
                     && (s.Article  ?? "") == article
                     && (s.Barcode  ?? "") == barcode
                     && (s.ListGem  ?? "") == listGem
-                    && (s.EdesFn   ?? "") == edesFn)
-                .OrderBy(s => s.CreateDate)
-                .ToListAsync();
+                    && (s.EdesFn   ?? "") == edesFn);
+
+            if (isAdminAdded == true)
+                query = query.Where(s => s.ReceiveNo == "ADMIN");
+            else if (isAdminAdded == false)
+                query = query.Where(s => s.ReceiveNo != "ADMIN");
+
+            return await query.OrderBy(s => s.CreateDate).ToListAsync();
         }
 
         private async Task<List<int>> ResolveGroupKeyToStockIdsAsync(string groupKey)
@@ -1866,7 +1903,7 @@ namespace JPStockShowRoom.Services.Implement
             return await res.ToListAsync();
         }
 
-        public async Task AddStockAsync(string barcode, decimal qty, int userId)
+        public async Task AddStockAsync(string barcode, decimal qty, int userId, string? orderNo = null)
         {
             var item = await (from cs in _jPDbContext.CpriceSale
                               join cp in _jPDbContext.Cprofile on cs.Article equals cp.Article
@@ -1891,7 +1928,7 @@ namespace JPStockShowRoom.Services.Implement
                 ReceiveId = 0,
                 ReceiveNo = "ADMIN",
                 CustCode = string.Empty,
-                OrderNo = $"Add By {user.FirstOrDefault()?.FirstName}",
+                OrderNo = orderNo ?? $"Add By {user.FirstOrDefault()?.FirstName}",
                 LotNo = string.Empty,
                 TempArticle = string.Empty,
                 Article = item.Article,
@@ -1911,6 +1948,77 @@ namespace JPStockShowRoom.Services.Implement
 
             await _sWDbContext.Stock.AddAsync(stock);
             await _sWDbContext.SaveChangesAsync();
+        }
+
+        public async Task<ExcelImportResultModel> ImportStockFromExcelAsync(Stream excelStream, int userId)
+        {
+            var result = new ExcelImportResultModel();
+            using var workbook = new XLWorkbook(excelStream);
+            var ws = workbook.Worksheets.First();
+
+            foreach (var row in ws.RowsUsed().Skip(1))
+            {
+                var rowNum = row.RowNumber();
+                var barcodeCell = row.Cell(2);
+                var qtyCell = row.Cell(3);
+
+                var article = row.Cell(1).GetString()?.Trim();
+                var barcode = barcodeCell.DataType == XLDataType.Number
+                    ? ((long)barcodeCell.GetDouble()).ToString()
+                    : barcodeCell.GetString()?.Trim();
+
+                var rowResult = new ExcelImportRowResult
+                {
+                    RowNumber = rowNum,
+                    Article = article,
+                    Barcode = barcode,
+                };
+
+                if (string.IsNullOrWhiteSpace(barcode))
+                {
+                    rowResult.IsSuccess = false;
+                    rowResult.ErrorMessage = "ไม่พบ Barcode";
+                    result.Rows.Add(rowResult);
+                    continue;
+                }
+
+                decimal qty;
+                if (qtyCell.DataType == XLDataType.Number)
+                    qty = (decimal)qtyCell.GetDouble();
+                else if (!decimal.TryParse(qtyCell.GetString()?.Trim(), out qty))
+                {
+                    rowResult.IsSuccess = false;
+                    rowResult.ErrorMessage = "จำนวนไม่ถูกต้อง";
+                    result.Rows.Add(rowResult);
+                    continue;
+                }
+
+                if (qty <= 0)
+                {
+                    rowResult.IsSuccess = false;
+                    rowResult.ErrorMessage = "จำนวนต้องมากกว่า 0";
+                    result.Rows.Add(rowResult);
+                    continue;
+                }
+
+                rowResult.Qty = qty;
+
+                try
+                {
+                    await AddStockAsync(barcode, qty, userId, "Add By Excel");
+                    rowResult.IsSuccess = true;
+                    result.SuccessCount++;
+                }
+                catch (Exception ex)
+                {
+                    rowResult.IsSuccess = false;
+                    rowResult.ErrorMessage = ex.Message;
+                }
+
+                result.Rows.Add(rowResult);
+            }
+
+            return result;
         }
     }
 }

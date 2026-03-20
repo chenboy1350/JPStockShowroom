@@ -3,7 +3,7 @@ $(document).ready(function () {
     $(document).on('keydown', '#txtStockFindLotNo, #txtStockFindArticle', function (e) {
         if (e.key === 'Enter') {
             e.preventDefault();
-            findStock();
+            findStock(1);
             loadTrayList();
         }
     });
@@ -262,7 +262,7 @@ function selectArticle(article) {
             ? _allArticles.filter(a => a.toLowerCase().includes($('#txtArticleSearch').val().trim().toLowerCase()))
             : _allArticles
     );
-    findStock();
+    findStock(1);
     loadTrayList();
 }
 
@@ -272,7 +272,7 @@ function clearArticleFilter() {
     $('#ddlUnit').val('').trigger('change');
     _selectedArticle = null;
     renderArticlePanel(_allArticles);
-    findStock();
+    findStock(1);
     loadTrayList();
 }
 
@@ -326,41 +326,62 @@ function toggleTrayPanel() {
 
 let _allStockRows = [];
 let _activeStockTab = 'general';
+let _currentStockPage = 1;
+let _totalStockPages = 1;
+const STOCK_PAGE_SIZE = 20;
 
 function switchStockTab(tab) {
     _activeStockTab = tab;
+    _currentStockPage = 1;
 
     $('#tab-stock-general').toggleClass('active', tab === 'general');
     $('#tab-stock-pending').toggleClass('active', tab === 'pending');
-    renderStockTable();
+    findStock(1);
 }
 
 function onFilterDDLChange() {
     _selectedArticle = null;
-    findStock();
+    const regStatusRaw = $('#ddlUnit').val();
+    if (regStatusRaw === '1') {
+        _activeStockTab = 'pending';
+        $('#tab-stock-general').removeClass('active');
+        $('#tab-stock-pending').addClass('active');
+    } else if (regStatusRaw === '2') {
+        _activeStockTab = 'general';
+        $('#tab-stock-general').addClass('active');
+        $('#tab-stock-pending').removeClass('active');
+    }
+    findStock(1);
     loadTrayList();
 }
 
-function findStock() {
-    const article = _selectedArticle || '';
+function findStock(page) {
+    if (page !== undefined) _currentStockPage = page;
+
+    const article = _selectedArticle || $('#txtArticleSearch').val().trim() || '';
     const edesArt = $('#ddlEDesArt').val() || '';
-    const registrationStatusRaw = $('#ddlUnit').val();
-    const registrationStatus = registrationStatusRaw ? parseInt(registrationStatusRaw) : null;
+    const registrationStatus = _activeStockTab === 'pending' ? 1 : 2;
     const tbody = $('#tbl-stock-body');
 
     tbody.html('<tr><td colspan="9" class="text-center text-muted">กำลังค้นหา...</td></tr>');
+    $('#stock-pagination-footer').hide();
 
     $.ajax({
         url: urlGetStockList,
         method: 'GET',
-        data: { article: article, edesArt: edesArt, registrationStatus: registrationStatus },
-        success: function (rows) {
-            _allStockRows = rows || [];
+        data: {
+            article: article,
+            edesArt: edesArt,
+            registrationStatus: registrationStatus,
+            page: _currentStockPage,
+            pageSize: STOCK_PAGE_SIZE
+        },
+        success: function (result) {
+            _allStockRows = result.items || [];
+            _totalStockPages = result.totalPages || 1;
 
-            const generalCount = _allStockRows.filter(r => r.article).length;
-            const pendingCount = _allStockRows.filter(r => !r.article).length;
-            $('#badge-stock-general').text(generalCount);
-            $('#badge-stock-pending').text(pendingCount);
+            $('#badge-stock-general').text(result.totalGeneralCount ?? 0);
+            $('#badge-stock-pending').text(result.totalPendingCount ?? 0);
 
             if (!_selectedArticle) {
                 const filteredArticles = [...new Set(
@@ -372,7 +393,7 @@ function findStock() {
                 renderArticlePanel(filteredArticles);
             }
 
-            renderStockTable();
+            renderStockTable(result.totalCount, result.page);
         },
         error: function (xhr) {
             tbody.html(`<tr><td colspan="9" class="text-danger text-center">เกิดข้อผิดพลาด (${xhr.status} ${xhr.statusText})</td></tr>`);
@@ -380,18 +401,13 @@ function findStock() {
     });
 }
 
-function renderStockTable() {
+function renderStockTable(totalCount, currentPage) {
     const tbody = $('#tbl-stock-body');
-    let rows;
-
-    if (_activeStockTab === 'pending') {
-        rows = _allStockRows.filter(r => !r.article);
-    } else {
-        rows = _allStockRows.filter(r => r.article);
-    }
+    const rows = _allStockRows;
 
     if (!rows || rows.length === 0) {
         tbody.html('<tr><td colspan="9" class="text-center text-muted">ไม่พบข้อมูล</td></tr>');
+        $('#stock-pagination-footer').hide();
         return;
     }
 
@@ -400,8 +416,11 @@ function renderStockTable() {
 
         if (_activeStockTab === 'pending') {
             statusBadge = `<span class="badge badge-warning">รอลงทะเบียน</span>`;
-            const breakBtn = (r.isFromSP || r.isAdminAdded) ? '' : `<button class="btn btn-warning btn-sm w-100" onclick="showBreakAdd('${r.groupKey}')" title="ส่งซ่อม"><i class="fas fa-hammer"></i> ส่งซ่อม</button>`;
-            actionBtn = breakBtn ? `<div class="d-flex flex-column gap-1 align-items-center">${breakBtn}</div>` : '';
+            const breakBtn = (r.isFromSP || r.isAdminAdded) ? '' : `<button class="btn btn-danger btn-sm w-100" onclick="showBreakAdd('${r.groupKey}')" title="ส่งซ่อม"><i class="fas fa-hammer"></i> ส่งซ่อม</button>`;
+            const withdrawBtn = r.availableQty > 0 ? `<button class="btn btn-secondary btn-sm w-100" onclick="withdrawStock('${r.groupKey}', ${r.availableQty}, ${r.ttWg}, ${r.isAdminAdded})" title="เบิกออก"><i class="fas fa-file-export"></i> เบิก</button>` : '';
+            const pendingDeleteBtn = r.isAdminAdded ? `<button class="btn btn-danger btn-sm w-100" onclick="deleteAdminStock('${r.groupKey}')" title="ลบสินค้า"><i class="fas fa-trash"></i> ลบ</button>` : '';
+            const btns = [withdrawBtn, breakBtn, pendingDeleteBtn].filter(b => b).join('');
+            actionBtn = btns ? `<div class="d-flex flex-column gap-1 align-items-center">${btns}</div>` : '';
         } else if (!r.isActive) {
             statusBadge = `<span class="badge badge-secondary">เบิกออกหมดแล้ว</span>`;
             actionBtn = '';
@@ -420,19 +439,21 @@ function renderStockTable() {
                 statusBadge = `<div class="d-flex flex-column gap-1 align-items-center">${badges}</div>`;
             }
 
-            const breakBtn = (r.isFromSP || r.isAdminAdded) ? '' : `<button class="btn btn-warning btn-sm w-100" onclick="showBreakAdd('${r.groupKey}')" title="ส่งซ่อม">
+            const breakBtn = (r.isFromSP || r.isAdminAdded) ? '' : `<button class="btn btn-danger btn-sm w-100" onclick="showBreakAdd('${r.groupKey}')" title="ส่งซ่อม">
                         <i class="fas fa-hammer"></i> ส่งซ่อม
                     </button>`;
 
+            const deleteBtn = r.isAdminAdded ? `<button class="btn btn-danger btn-sm w-100" onclick="deleteAdminStock('${r.groupKey}')" title="ลบสินค้า"><i class="fas fa-trash"></i> ลบ</button>` : '';
+
             const returnBtn = r.borrowCount > 0
-                ? `<button class="btn btn-primary btn-sm w-100" onclick="showReturnBorrow('${r.groupKey}')" title="คืนสินค้า">
+                ? `<button class="btn btn-warning btn-sm w-100" onclick="showReturnBorrow('${r.groupKey}')" title="คืนสินค้า">
                         <i class="fas fa-undo"></i> คืน
                     </button>`
                 : '';
 
             const borrowableQty = r.ttQty - r.borrowedQty;
             const borrowBtn = borrowableQty > 0
-                ? `<button class="btn btn-success btn-sm w-100" onclick="borrowItem('${r.groupKey}', ${borrowableQty})" title="ยืม">
+                ? `<button class="btn btn-warning btn-sm w-100" onclick="borrowItem('${r.groupKey}', ${borrowableQty})" title="ยืม">
                         <i class="fas fa-hand-holding"></i> ยืม
                     </button>`
                 : '';
@@ -442,18 +463,20 @@ function renderStockTable() {
                     <button class="btn btn-info btn-sm w-100" onclick="showAddToTrayReverse('${r.groupKey}', '${html(r.article)}', ${r.availableQty})" title="ลงถาด">
                         <i class="fas fa-inbox"></i> ลงถาด
                     </button>
-                    <button class="btn btn-danger btn-sm w-100" onclick="withdrawStock('${r.groupKey}', ${r.availableQty}, ${r.ttWg})" title="เบิกออก">
+                    <button class="btn btn-secondary btn-sm w-100" onclick="withdrawStock('${r.groupKey}', ${r.availableQty}, ${r.ttWg}, ${r.isAdminAdded})" title="เบิกออก">
                         <i class="fas fa-file-export"></i> เบิก
                     </button>
                     ${breakBtn}
                     ${borrowBtn}
                     ${returnBtn}
+                    ${deleteBtn}
                 </div>`;
             } else {
                 actionBtn = `<div class="d-flex flex-column gap-1 align-items-center">
                     <span class="text-muted small">ไม่มีในคลัง</span>
                     ${borrowBtn}
                     ${returnBtn}
+                    ${deleteBtn}
                 </div>`;
             }
         }
@@ -466,7 +489,7 @@ function renderStockTable() {
                             </div>
                         </td>
                         <td class="text-center"><strong>${html(r.article || r.tempArticle || '')}</strong><br><small class="text-muted">${html(r.tempArticle || '')}</small></td>
-                        <td class="text-center">${html(r.orderNo)}</td>
+                        <td class="text-center">${html(r.orderNo)}${r.isFromSP && r.custCode ? `<br><small class="text-muted">${html(r.custCode)}</small>` : ''}</td>
                         <td><small>${html(r.eDesFn)}</small></td>
                         <td class="text-center">${r.listGem != null ? r.listGem : ''}</td>
                         <td class="text-center">${r.createDate}</td>
@@ -480,6 +503,44 @@ function renderStockTable() {
     }).join('');
 
     tbody.html(body);
+    renderStockPagination(totalCount, currentPage);
+}
+
+function renderStockPagination(totalCount, currentPage) {
+    const footer = $('#stock-pagination-footer');
+    if (_totalStockPages <= 1) {
+        footer.hide();
+        return;
+    }
+
+    const start = (currentPage - 1) * STOCK_PAGE_SIZE + 1;
+    const end   = Math.min(currentPage * STOCK_PAGE_SIZE, totalCount);
+    $('#stock-pagination-info').text(`แสดง ${start}-${end} จาก ${totalCount} รายการ`);
+
+    const ul = $('#stock-pagination');
+    ul.empty();
+
+    const maxVisible = 5;
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+    let endPage   = Math.min(_totalStockPages, startPage + maxVisible - 1);
+    if (endPage - startPage < maxVisible - 1) startPage = Math.max(1, endPage - maxVisible + 1);
+
+    const prevDisabled = currentPage === 1 ? 'disabled' : '';
+    ul.append(`<li class="page-item ${prevDisabled}"><a class="page-link" href="#" onclick="findStock(${currentPage - 1});return false;">&laquo;</a></li>`);
+
+    if (startPage > 1) ul.append(`<li class="page-item disabled"><span class="page-link">...</span></li>`);
+
+    for (let p = startPage; p <= endPage; p++) {
+        const active = p === currentPage ? 'active' : '';
+        ul.append(`<li class="page-item ${active}"><a class="page-link" href="#" onclick="findStock(${p});return false;">${p}</a></li>`);
+    }
+
+    if (endPage < _totalStockPages) ul.append(`<li class="page-item disabled"><span class="page-link">...</span></li>`);
+
+    const nextDisabled = currentPage === _totalStockPages ? 'disabled' : '';
+    ul.append(`<li class="page-item ${nextDisabled}"><a class="page-link" href="#" onclick="findStock(${currentPage + 1});return false;">&raquo;</a></li>`);
+
+    footer.show();
 }
 
 function clearStockFilter() {
@@ -997,7 +1058,7 @@ async function returnBorrowFromStock(borrowDetailId) {
     });
 }
 
-async function withdrawStock(receivedId, maxQty, maxWg) {
+async function withdrawStock(receivedId, maxQty, maxWg, isAdminAdded = false) {
     const { value: formValues } = await Swal.fire({
         title: 'เบิกสินค้าออก',
         html: `
@@ -1039,6 +1100,7 @@ async function withdrawStock(receivedId, maxQty, maxWg) {
     const formData = new FormData();
     formData.append('groupKey', receivedId);
     formData.append('withdrawQty', formValues.qty);
+    formData.append('isAdminAdded', isAdminAdded);
     if (formValues.remark) formData.append('remark', formValues.remark);
 
     $.ajax({
@@ -1055,6 +1117,34 @@ async function withdrawStock(receivedId, maxQty, maxWg) {
         },
         error: async function (xhr) {
             $('#loadingIndicator').hide();
+            let msg = xhr.responseJSON?.message || 'เกิดข้อผิดพลาด';
+            await swalWarning(msg);
+        }
+    });
+}
+
+async function deleteAdminStock(groupKey) {
+    const confirm = await Swal.fire({
+        title: 'ยืนยันการลบ',
+        text: 'ต้องการลบสินค้านี้ออกจากสต็อกใช่หรือไม่?',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'ลบ',
+        cancelButtonText: 'ยกเลิก',
+        confirmButtonColor: '#dc3545'
+    });
+
+    if (!confirm.isConfirmed) return;
+
+    $.ajax({
+        url: urlDeleteAdminStock,
+        type: 'DELETE',
+        data: { groupKey: groupKey },
+        success: function () {
+            findStock();
+            swalToastSuccess('ลบสินค้าเรียบร้อย');
+        },
+        error: async function (xhr) {
             let msg = xhr.responseJSON?.message || 'เกิดข้อผิดพลาด';
             await swalWarning(msg);
         }
@@ -1468,3 +1558,87 @@ async function confirmAddStock() {
         }
     });
 }
+
+function showModalImportExcel() {
+    resetImportExcelModal();
+    $('#modal-import-excel').modal('show');
+}
+
+function resetImportExcelModal() {
+    $('#fileImportExcel').val('');
+    $('.custom-file-label[for="fileImportExcel"]').text('เลือกไฟล์...');
+    $('#import-excel-upload-section').show();
+    $('#import-excel-result-section').hide();
+    $('#btnConfirmImportExcel').show();
+    $('#btnImportExcelBack').hide();
+}
+
+async function confirmImportExcel() {
+    const fileInput = document.getElementById('fileImportExcel');
+    if (!fileInput.files || fileInput.files.length === 0) {
+        await swalWarning('กรุณาเลือกไฟล์ Excel');
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', fileInput.files[0]);
+
+    $('#loadingIndicator').show();
+    $('#btnConfirmImportExcel').prop('disabled', true);
+
+    $.ajax({
+        url: urlImportStockFromExcel,
+        type: 'POST',
+        data: formData,
+        processData: false,
+        contentType: false,
+        success: function (data) {
+            $('#loadingIndicator').hide();
+            $('#btnConfirmImportExcel').prop('disabled', false);
+
+            if (data.successCount > 0) {
+                findStock();
+            }
+
+            if (!data.failedRows || data.failedRows.length === 0) {
+                $('#modal-import-excel').modal('hide');
+                swalToastSuccess(`นำเข้าสำเร็จ ${data.successCount} รายการ`);
+                return;
+            }
+
+            const summaryHtml = `<div class="alert alert-warning">
+                <i class="fas fa-exclamation-triangle mr-1"></i>
+                นำเข้าสำเร็จ <strong>${data.successCount}</strong> รายการ,
+                ล้มเหลว <strong>${data.failedRows.length}</strong> รายการ
+            </div>`;
+            $('#import-excel-summary').html(summaryHtml);
+
+            const rows = data.failedRows.map(function (r) {
+                return `<tr class="table-danger">
+                    <td class="text-center">${r.rowNumber}</td>
+                    <td>${html(r.article || '-')}</td>
+                    <td>${html(r.barcode || '-')}</td>
+                    <td class="text-end">${r.qty}</td>
+                    <td class="text-danger"><small>${html(r.errorMessage)}</small></td>
+                </tr>`;
+            }).join('');
+            $('#tbl-import-excel-body').html(rows);
+
+            $('#import-excel-upload-section').hide();
+            $('#import-excel-result-section').show();
+            $('#btnConfirmImportExcel').hide();
+            $('#btnImportExcelBack').show();
+        },
+        error: async function (xhr) {
+            $('#loadingIndicator').hide();
+            $('#btnConfirmImportExcel').prop('disabled', false);
+            const msg = xhr.responseJSON?.message || 'เกิดข้อผิดพลาด';
+            await swalWarning(msg);
+        }
+    });
+}
+
+$(document).on('change', '#fileImportExcel', function () {
+    const fileName = this.files[0]?.name || 'เลือกไฟล์...';
+    $('.custom-file-label[for="fileImportExcel"]').text(fileName);
+});

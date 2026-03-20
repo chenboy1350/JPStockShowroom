@@ -5,7 +5,20 @@
       "Bash(dir:*)",
       "Bash(dotnet build:*)",
       "Bash(grep -n \"class.*BorrowModel\\\\|class.*BorrowHeaderModel\" \"e:/repo/JPStockShowRoom/JPStockShowRoom/Models/\"*.cs)",
-      "Bash(\"e:/repo/JPStockShowRoom/JPStockShowRoom/wwwroot/js/StockManagement.js\")"
+      "Bash(\"e:/repo/JPStockShowRoom/JPStockShowRoom/wwwroot/js/StockManagement.js\")",
+      "Bash(dotnet restore:*)",
+      "Bash(pip show:*)",
+      "Bash(pip install:*)",
+      "Bash(pandoc --version)",
+      "Bash(wkhtmltopdf --version)",
+      "Bash(python generate_uat_pdf.py)",
+      "Bash(python -c \"from fpdf import FPDF; print\\(''fpdf2 ok''\\)\")",
+      "Bash(python -c \"import fpdf; import os; p = os.path.dirname\\(fpdf.__file__\\); print\\(os.listdir\\(os.path.join\\(p, ''fonts''\\)\\)\\)\")",
+      "Bash(python -c \"import fpdf; import os; p = os.path.dirname\\(fpdf.__file__\\); print\\(os.listdir\\(p\\)\\)\")",
+      "Bash(python -c \"import fpdf; import os; p = os.path.join\\(os.path.dirname\\(fpdf.__file__\\), ''data''\\); print\\(os.listdir\\(p\\)\\)\")",
+      "Bash(python -c \"import docx; print\\(''''ok''''\\)\")",
+      "Bash(python -c \"import docx; print\\(''python-docx ok''\\)\")",
+      "Bash(python generate_uat_docx.py)"
     ]
   }
 }

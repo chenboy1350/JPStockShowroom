@@ -319,6 +319,11 @@ namespace JPStockShowRoom.Controllers
                         filtered = filtered.Where(s => !string.IsNullOrEmpty(s.Article));
                 }
 
+                if (!string.IsNullOrEmpty(request.OrderNoFrom))
+                    filtered = filtered.Where(s => string.Compare(s.OrderNo, request.OrderNoFrom, StringComparison.OrdinalIgnoreCase) >= 0);
+                if (!string.IsNullOrEmpty(request.OrderNoTo))
+                    filtered = filtered.Where(s => string.Compare(s.OrderNo, request.OrderNoTo, StringComparison.OrdinalIgnoreCase) <= 0);
+
                 var pdfBytes = _reportService.GenerateStockReport(filtered.ToList());
                 return File(pdfBytes, "application/pdf");
             }
@@ -345,6 +350,11 @@ namespace JPStockShowRoom.Controllers
                     else if (request.RegistrationStatus == RegistrationStatus.Registered)
                         filtered = filtered.Where(s => !string.IsNullOrEmpty(s.Article));
                 }
+
+                if (!string.IsNullOrEmpty(request.OrderNoFrom))
+                    filtered = filtered.Where(s => string.Compare(s.OrderNo, request.OrderNoFrom, StringComparison.OrdinalIgnoreCase) >= 0);
+                if (!string.IsNullOrEmpty(request.OrderNoTo))
+                    filtered = filtered.Where(s => string.Compare(s.OrderNo, request.OrderNoTo, StringComparison.OrdinalIgnoreCase) <= 0);
 
                 var pdfBytes = _reportService.GenerateStockNoIMGReport(filtered.ToList());
                 return File(pdfBytes, "application/pdf");
@@ -376,16 +386,9 @@ namespace JPStockShowRoom.Controllers
 
         [Authorize]
         [HttpGet]
-        public async Task<IActionResult> GetStockList(string? article, string? edesArt, int? registrationStatus)
+        public async Task<IActionResult> GetStockList(string? article, string? edesArt, int? registrationStatus, int page = 1, int pageSize = 20)
         {
-            var result = await _stockManagementService.GetStockListAsync(article, edesArt, null);
-            if (registrationStatus.HasValue)
-            {
-                if ((RegistrationStatus)registrationStatus == RegistrationStatus.Pending)
-                    result = result.Where(s => string.IsNullOrEmpty(s.Article)).ToList();
-                else if ((RegistrationStatus)registrationStatus == RegistrationStatus.Registered)
-                    result = result.Where(s => !string.IsNullOrEmpty(s.Article)).ToList();
-            }
+            var result = await _stockManagementService.GetStockListAsync(article, edesArt, null, registrationStatus, page, pageSize);
             return Json(result);
         }
 
@@ -498,11 +501,19 @@ namespace JPStockShowRoom.Controllers
 
         [Authorize]
         [HttpPost]
-        public async Task<IActionResult> WithdrawFromStock(string groupKey, decimal withdrawQty, string? remark)
+        public async Task<IActionResult> WithdrawFromStock(string groupKey, decimal withdrawQty, string? remark, bool isAdminAdded = false)
         {
             var userId = User.GetUserId() ?? 0;
-            await _stockManagementService.WithdrawFromStockAsync(groupKey, withdrawQty, remark, userId);
+            await _stockManagementService.WithdrawFromStockAsync(groupKey, withdrawQty, remark, userId, isAdminAdded);
             return Ok(new { message = "เบิกสินค้าออกเรียบร้อย" });
+        }
+
+        [Authorize]
+        [HttpDelete]
+        public async Task<IActionResult> DeleteAdminStock(string groupKey)
+        {
+            await _stockManagementService.DeleteAdminStockAsync(groupKey);
+            return Ok(new { message = "ลบสินค้าเรียบร้อย" });
         }
 
         [Authorize]
@@ -576,6 +587,28 @@ namespace JPStockShowRoom.Controllers
         {
             var result = await _stockManagementService.GetArticleListAsync();
             return Json(result);
+        }
+
+        [Authorize]
+        [HttpPost]
+        public async Task<IActionResult> ImportStockFromExcel(IFormFile file)
+        {
+            if (file == null || file.Length == 0)
+                return BadRequest(new { message = "ไม่พบไฟล์" });
+
+            try
+            {
+                var userId = User.GetUserId() ?? 0;
+                using var stream = file.OpenReadStream();
+                var result = await _stockManagementService.ImportStockFromExcelAsync(stream, userId);
+                var failedRows = result.Rows.Where(r => !r.IsSuccess).ToList();
+                return Ok(new { successCount = result.SuccessCount, failedRows });
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "ImportStockFromExcel failed: {Message}", ex.Message);
+                return StatusCode(500, new { message = ex.Message });
+            }
         }
 
         [Authorize]

@@ -492,12 +492,24 @@
                         </select>
                     </div>
                 </div>
-                <div class="col-md-3 d-flex align-items-end gap-2">
+                <div class="col-md-3">
+                    <div class="form-group">
+                        <label>OrderNo</label>
+                        <div class="d-flex align-items-center gap-2">
+                            <input type="text" id="txtStockOrderNoFrom" class="form-control" placeholder="จาก">
+                            <span>-</span>
+                            <input type="text" id="txtStockOrderNoTo" class="form-control" placeholder="ถึง">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row mt-2">
+                <div class="col-md-12 d-flex gap-2">
                     <button type="button" class="btn btn-secondary" onclick="printStockToPDF()">
-                        <i class="fas fa-print mr-1"></i>พิมพ์รายงาน
+                        <i class="fas fa-print mr-1"></i>พิมพ์รายงาน (รูป)
                     </button>
                     <button type="button" class="btn btn-info" onclick="printStockNoIMGToPDF()">
-                        <i class="fas fa-list mr-1"></i>พิมพ์ตาราง
+                        <i class="fas fa-list mr-1"></i>พิมพ์รายงาน
                     </button>
                 </div>
             </div>

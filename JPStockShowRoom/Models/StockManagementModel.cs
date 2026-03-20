@@ -28,6 +28,7 @@ namespace JPStockShowRoom.Models
         public string CreateDate { get; set; } = string.Empty;
         public string FileName { get; set; } = string.Empty;
         public string ImgPath { get; set; } = string.Empty;
+        public byte[]? ImgBytes { get; set; }
         public string Unit { get; set; } = string.Empty;
         public string EDesArt { get; set; } = string.Empty;
         public bool IsActive { get; set; } = false;
@@ -161,6 +162,8 @@ namespace JPStockShowRoom.Models
         public string? EDesArt { get; set; }
         public string? Unit { get; set; }
         public RegistrationStatus? RegistrationStatus { get; set; }
+        public string? OrderNoFrom { get; set; }
+        public string? OrderNoTo { get; set; }
     }
 
     public class BorrowReportFilterModel
@@ -211,6 +214,33 @@ namespace JPStockShowRoom.Models
         public string? ListGem { get; set; }
         public string? EdesArt { get; set; }
         public string? EdesFn { get; set; }
+    }
+
+    public class ExcelImportRowResult
+    {
+        public int RowNumber { get; set; }
+        public string? Article { get; set; }
+        public string? Barcode { get; set; }
+        public decimal Qty { get; set; }
+        public bool IsSuccess { get; set; }
+        public string? ErrorMessage { get; set; }
+    }
+
+    public class ExcelImportResultModel
+    {
+        public int SuccessCount { get; set; }
+        public List<ExcelImportRowResult> Rows { get; set; } = new();
+    }
+
+    public class PagedResult<T>
+    {
+        public List<T> Items           { get; set; } = [];
+        public int     TotalCount      { get; set; }
+        public int     Page            { get; set; }
+        public int     PageSize        { get; set; }
+        public int     TotalPages      => (int)Math.Ceiling((double)TotalCount / PageSize);
+        public int     TotalGeneralCount { get; set; }
+        public int     TotalPendingCount { get; set; }
     }
 
 }

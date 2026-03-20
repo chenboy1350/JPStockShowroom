@@ -6,8 +6,10 @@ async function printStockToPDF(article, edesArt, unit, registrationStatus) {
         const raw = $('#ddlStockUnit').val();
         registrationStatus = raw ? parseInt(raw) : null;
     }
+    const orderNoFrom = ($('#txtStockOrderNoFrom').val() || '').trim() || null;
+    const orderNoTo = ($('#txtStockOrderNoTo').val() || '').trim() || null;
 
-    const model = { Article: article || null, EDesArt: edesArt || null, Unit: unit || null, RegistrationStatus: registrationStatus };
+    const model = { Article: article || null, EDesArt: edesArt || null, Unit: unit || null, RegistrationStatus: registrationStatus, OrderNoFrom: orderNoFrom, OrderNoTo: orderNoTo };
     const pdfWindow = window.open('', '_blank');
 
     $.ajax({
@@ -46,8 +48,10 @@ async function printStockNoIMGToPDF(article, edesArt, unit, registrationStatus) 
         const raw = $('#ddlStockUnit').val();
         registrationStatus = raw ? parseInt(raw) : null;
     }
+    const orderNoFrom = ($('#txtStockOrderNoFrom').val() || '').trim() || null;
+    const orderNoTo = ($('#txtStockOrderNoTo').val() || '').trim() || null;
 
-    const model = { Article: article || null, EDesArt: edesArt || null, Unit: unit || null, RegistrationStatus: registrationStatus };
+    const model = { Article: article || null, EDesArt: edesArt || null, Unit: unit || null, RegistrationStatus: registrationStatus, OrderNoFrom: orderNoFrom, OrderNoTo: orderNoTo };
     const pdfWindow = window.open('', '_blank');
 
     $.ajax({

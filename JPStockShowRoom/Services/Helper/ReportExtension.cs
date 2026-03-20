@@ -21,7 +21,7 @@ namespace JPStockShowRoom.Services.Helper
 
                                 table.Cell().Element(CellStyle).AlignCenter().Text($"{item.OrderNo}").FontSize(8).SemiBold();
                                 table.Cell().Element(CellStyle).AlignCenter().Text($"{item.TempArticle}").FontSize(8).SemiBold();
-                                table.Cell().Element(CellStyle).AlignCenter().AlignMiddle().Height(60).Width(70).Element(container => container.RenderItemImage(null, item.ImgPath));
+                                table.Cell().Element(CellStyle).AlignCenter().AlignMiddle().Height(60).Width(70).Element(container => container.RenderItemImage(item.ImgBytes, item.ImgBytes == null ? item.ImgPath : null));
 
                                 table.Cell().Element(CellStyle).AlignCenter().Text($"{item.EDesFn.Trim()} / {item.ListGem.Trim()}").FontSize(8).SemiBold();
 

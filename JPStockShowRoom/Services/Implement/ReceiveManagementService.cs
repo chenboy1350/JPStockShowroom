@@ -127,6 +127,8 @@ namespace JPStockShowRoom.Services.Implement
                 from a in _jPDbContext.Spdreceive
                 join c in _jPDbContext.OrdLotno on a.Lotno equals c.LotNo
                 join d in _jPDbContext.OrdHorder on c.OrderNo equals d.OrderNo
+                join e in _jPDbContext.CpriceSale on a.Barcode equals e.Barcode into eJoin
+                from e in eJoin.DefaultIfEmpty()
                 where a.ReceiveNo == receiveNo && !string.IsNullOrEmpty(a.Lotno)
                 select new
                 {
@@ -140,7 +142,8 @@ namespace JPStockShowRoom.Services.Implement
                     a.Article,
                     d.OrderNo,
                     c.ListNo,
-                    d.CustCode
+                    d.CustCode,
+                    ListGem = e != null ? e.ListGem : null
                 }
             ).ToListAsync();
 
@@ -175,6 +178,7 @@ namespace JPStockShowRoom.Services.Implement
                 TtQty = x.Ttqty,
                 TtWg = (double)x.Ttwg,
                 EdesFn = x.EdesFn,
+                ListGem = x.ListGem ?? string.Empty,
                 Article = x.Article,
                 OrderNo = x.OrderNo,
                 ListNo = x.ListNo,
@@ -219,6 +223,18 @@ namespace JPStockShowRoom.Services.Implement
                 .Select(x => x.ReceiveId)
                 .ToHashSetAsync();
 
+            var spBarcodes = allReceived
+                .Select(x => x.Barcode ?? string.Empty)
+                .Where(b => b.Length > 0)
+                .Distinct()
+                .ToList();
+            var spListGemByBarcode = new Dictionary<string, string>();
+            foreach (var barcode in spBarcodes)
+            {
+                var cpItem = await _jPDbContext.CpriceSale.FindAsync(barcode);
+                spListGemByBarcode[barcode] = cpItem?.ListGem ?? string.Empty;
+            }
+
             var result = allReceived.Select(x => new ReceivedListModel
             {
                 ReceivedID = x.SendShowroomId,
@@ -228,6 +244,7 @@ namespace JPStockShowRoom.Services.Implement
                 TtQty = x.TtQty,
                 TtWg = x.TtWg,
                 EdesFn = x.EdesFn ?? string.Empty,
+                ListGem = spListGemByBarcode.GetValueOrDefault(x.Barcode ?? string.Empty, string.Empty),
                 Article = x.Article ?? string.Empty,
                 OrderNo = x.OrderNo,
                 ListNo = x.ListNo,

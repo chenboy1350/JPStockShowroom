@@ -5,7 +5,7 @@ namespace JPStockShowRoom.Services.Interface
 {
     public interface IStockManagementService
     {
-        Task<List<StockItemModel>> GetStockListAsync(string? article, string? edesArt = null, string? unit = null);
+        Task<PagedResult<StockItemModel>> GetStockListAsync(string? article, string? edesArt = null, string? unit = null, int? registrationStatus = null, int page = 1, int pageSize = 20);
         Task<List<StockItemModel>> GetReportStockListAsync(string? article, string? edesArt = null, string? unit = null);
 
         Task<List<TrayModel>> GetTrayListAsync(string? article);
@@ -19,7 +19,8 @@ namespace JPStockShowRoom.Services.Interface
         Task ReturnBorrowAsync(int borrowDetailId, int userId);
         Task<List<BorrowModel>> GetBorrowListAsync(string? groupKey);
         Task<List<string>> GetArticleListAsync();
-        Task WithdrawFromStockAsync(string groupKey, decimal withdrawQty, string? remark, int userId);
+        Task WithdrawFromStockAsync(string groupKey, decimal withdrawQty, string? remark, int userId, bool isAdminAdded = false);
+        Task DeleteAdminStockAsync(string groupKey);
         Task<List<WithdrawalModel>> GetWithdrawalListAsync();
         Task SyncArticlesAsync();
         Task<List<LostAndRepairModel>> GetBreakAsync(BreakAndLostFilterModel filter);
@@ -44,6 +45,7 @@ namespace JPStockShowRoom.Services.Interface
         Task CancelPendingBorrowAsync(int borrowDetailId, int userId);
         Task<List<BorrowModel>> GetBorrowsByStockIdAsync(string groupKey);
         Task<List<AddStockItemModel>> SearchAddStockItems(string article, string barcode);
-        Task AddStockAsync(string barcode, decimal qty, int userId);
+        Task AddStockAsync(string barcode, decimal qty, int userId, string? orderNo = null);
+        Task<ExcelImportResultModel> ImportStockFromExcelAsync(Stream excelStream, int userId);
     }
 }
