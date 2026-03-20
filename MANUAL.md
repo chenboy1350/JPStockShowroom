@@ -387,4 +387,167 @@
 
 ---
 
+## 9. ER Diagram — JPStockShowroom (SW Database)
+
+```mermaid
+erDiagram
+
+    Received {
+        int     ReceivedId      PK
+        int     ReceiveId
+        string  ReceiveNo
+        string  LotNo
+        string  Barcode
+        int     BillNumber
+        decimal TtQty
+        double  TtWg
+        bool    IsReceived
+        bool    IsAssigned
+        bool    IsReturned
+        bool    IsActive
+    }
+
+    Stock {
+        int     StockId         PK
+        int     ReceiveId       FK
+        string  ReceiveNo
+        string  CustCode
+        string  OrderNo
+        string  LotNo
+        string  TempArticle
+        string  Article
+        string  Barcode
+        string  Unit
+        string  EdesFn
+        string  EdesArt
+        string  ListGem
+        string  ImgPath
+        int     BillNumber
+        decimal TtQty
+        double  TtWg
+        bool    IsRepairing
+        bool    IsActive
+    }
+
+    Tray {
+        int     TrayId          PK
+        string  TrayNo
+        string  Description
+        int     CreatedBy
+        bool    IsActive
+    }
+
+    TrayItem {
+        int     TrayItemId      PK
+        int     TrayId          FK
+        int     StockId         FK
+        decimal Qty
+        double  Wg
+        int     CreatedBy
+        bool    IsActive
+    }
+
+    Borrow {
+        string  BorrowNo        PK
+        int     CreateBy
+        bool    IsActive
+    }
+
+    BorrowDetail {
+        int     BorrowDetailId  PK
+        string  BorrowNo        FK
+        int     StockId         FK
+        decimal BorrowQty
+        double  BorrowWg
+        int     BorrowedBy
+        bool    IsReturned
+        datetime BorrowDate
+        datetime ReturnDate
+    }
+
+    BorrowTrayDeduction {
+        int     BorrowTrayDeductionId  PK
+        int     BorrowDetailId         FK
+        int     TrayItemId             FK
+        decimal DeductedQty
+        double  DeductedWg
+    }
+
+    Withdrawal {
+        string  WithdrawalNo    PK
+        int     CreateBy
+        bool    IsActive
+    }
+
+    WithdrawalDetail {
+        int     WithdrawalDetailId  PK
+        string  WithdrawalNo        FK
+        int     StockId             FK
+        decimal Qty
+        double  Wg
+        string  Remark
+        int     WithdrawnBy
+        bool    IsActive
+    }
+
+    Break {
+        string  BreakNo         PK
+        int     CreateBy
+        bool    IsActive
+    }
+
+    BreakDetail {
+        int     BreakDetailId       PK
+        string  BreakNo             FK
+        int     StockId             FK
+        int     BreakDescriptionId
+        decimal BreakQty
+        bool    IsReported
+        bool    IsActive
+    }
+
+    Permission {
+        int     PermissionId    PK
+        string  Name
+        bool    IsMenu
+        bool    IsActive
+    }
+
+    MappingPermission {
+        int     MappingPermissionId PK
+        int     UserId
+        int     PermissionId        FK
+        bool    IsActive
+    }
+
+    Received        ||--o{ Stock                  : "ReceiveId"
+    Stock           ||--o{ TrayItem               : "StockId"
+    Stock           ||--o{ BorrowDetail           : "StockId"
+    Stock           ||--o{ WithdrawalDetail       : "StockId"
+    Stock           ||--o{ BreakDetail            : "StockId"
+    Tray            ||--o{ TrayItem               : "TrayId"
+    Borrow          ||--o{ BorrowDetail           : "BorrowNo"
+    BorrowDetail    ||--o{ BorrowTrayDeduction    : "BorrowDetailId"
+    TrayItem        ||--o{ BorrowTrayDeduction    : "TrayItemId"
+    Withdrawal      ||--o{ WithdrawalDetail       : "WithdrawalNo"
+    Break           ||--o{ BreakDetail            : "BreakNo"
+    Permission      ||--o{ MappingPermission      : "PermissionId"
+```
+
+### อธิบายความสัมพันธ์หลัก
+
+| ความสัมพันธ์ | คำอธิบาย |
+|-------------|----------|
+| `Received` → `Stock` | สินค้าที่รับเข้า (Received) จะกลายเป็น Stock ในระบบ |
+| `Stock` → `TrayItem` | สินค้าหนึ่งชิ้นสามารถอยู่ในหลายถาดได้ |
+| `Tray` → `TrayItem` | ถาดหนึ่งใบมีรายการสินค้าหลายรายการ |
+| `Borrow` → `BorrowDetail` | เอกสารยืมหนึ่งใบมีรายละเอียดสินค้าหลายรายการ |
+| `BorrowDetail` → `BorrowTrayDeduction` | การยืมจะตัดจำนวนออกจากถาดที่เกี่ยวข้อง |
+| `TrayItem` → `BorrowTrayDeduction` | ระบุว่าตัดจาก TrayItem ใด |
+| `Withdrawal` → `WithdrawalDetail` | เอกสารเบิกถอนหนึ่งใบมีรายการสินค้าหลายรายการ |
+| `Break` → `BreakDetail` | เอกสารแจ้งชำรุดหนึ่งใบมีรายการสินค้าหลายรายการ |
+| `Permission` → `MappingPermission` | สิทธิ์ถูก mapping กับ User |
+
+---
+
 *คู่มือนี้ครอบคลุมการใช้งานหลักของระบบ JP Stock Showroom สำหรับข้อมูลเพิ่มเติมหรือปัญหาที่ไม่ได้ระบุในคู่มือ กรุณาติดต่อผู้ดูแลระบบ*

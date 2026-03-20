@@ -1,4 +1,4 @@
-﻿using JPStockShowRoom.Models;
+using JPStockShowRoom.Models;
 using JPStockShowRoom.Services.Helper;
 using JPStockShowRoom.Services.Interface;
 using Microsoft.AspNetCore.Authorization;
@@ -10,7 +10,12 @@ namespace JPStockShowRoom.Controllers
     public class HomeController : Controller
     {
         private readonly IReceiveManagementService _receiveManagementService;
-        private readonly IStockManagementService _stockManagementService;
+        private readonly IStockQueryService _stockQueryService;
+        private readonly ITrayService _trayService;
+        private readonly IBorrowService _borrowService;
+        private readonly IWithdrawalService _withdrawalService;
+        private readonly IBreakService _breakService;
+        private readonly IAdminStockService _adminStockService;
         private readonly IWebHostEnvironment _env;
         private readonly AppSettingModel _appSettings;
         private readonly IPISService _pISService;
@@ -21,7 +26,12 @@ namespace JPStockShowRoom.Controllers
 
         public HomeController(
             IReceiveManagementService receiveManagementService,
-            IStockManagementService stockManagementService,
+            IStockQueryService stockQueryService,
+            ITrayService trayService,
+            IBorrowService borrowService,
+            IWithdrawalService withdrawalService,
+            IBreakService breakService,
+            IAdminStockService adminStockService,
             IWebHostEnvironment webHostEnvironment,
             IOptions<AppSettingModel> appSettings,
             IPISService pISService,
@@ -31,7 +41,12 @@ namespace JPStockShowRoom.Controllers
             IReportService reportService)
         {
             _receiveManagementService = receiveManagementService;
-            _stockManagementService = stockManagementService;
+            _stockQueryService = stockQueryService;
+            _trayService = trayService;
+            _borrowService = borrowService;
+            _withdrawalService = withdrawalService;
+            _breakService = breakService;
+            _adminStockService = adminStockService;
             _env = webHostEnvironment;
             _appSettings = appSettings.Value;
             _pISService = pISService;
@@ -182,7 +197,7 @@ namespace JPStockShowRoom.Controllers
         [Authorize]
         public async Task<IActionResult> PrintReport()
         {
-            ViewBag.ProductTypes = await _stockManagementService.GetProductTypesAsync();
+            ViewBag.ProductTypes = await _stockQueryService.GetProductTypesAsync();
             return PartialView("~/Views/Partial/_PrintReport.cshtml");
         }
 
@@ -192,7 +207,7 @@ namespace JPStockShowRoom.Controllers
         {
             try
             {
-                var all = await _stockManagementService.GetWithdrawalListAsync();
+                var all = await _withdrawalService.GetWithdrawalListAsync();
                 var filtered = all.AsEnumerable();
 
                 if (!string.IsNullOrWhiteSpace(request.Article))
@@ -229,11 +244,11 @@ namespace JPStockShowRoom.Controllers
 
                 if (!string.IsNullOrWhiteSpace(request.BorrowNo))
                 {
-                    filtered = await _stockManagementService.GetBorrowDetailsByNoAsync(request.BorrowNo);
+                    filtered = await _borrowService.GetBorrowDetailsByNoAsync(request.BorrowNo);
                 }
                 else
                 {
-                    var all = await _stockManagementService.GetBorrowListAsync(null);
+                    var all = await _borrowService.GetBorrowListAsync(null);
                     var query = all.AsEnumerable();
 
                     if (!string.IsNullOrWhiteSpace(request.Article))
@@ -257,7 +272,7 @@ namespace JPStockShowRoom.Controllers
         [HttpGet]
         public async Task<IActionResult> GetBorrowHeaders(string? article, string? borrowNo, string? edesArt, bool? isReturned)
         {
-            var result = await _stockManagementService.GetBorrowHeadersAsync(article, edesArt, borrowNo, isReturned);
+            var result = await _borrowService.GetBorrowHeadersAsync(article, edesArt, borrowNo, isReturned);
             return Json(result);
         }
 
@@ -265,7 +280,7 @@ namespace JPStockShowRoom.Controllers
         [HttpGet]
         public async Task<IActionResult> GetBorrowDetailsByNo(string borrowNo)
         {
-            var result = await _stockManagementService.GetBorrowDetailsByNoAsync(borrowNo);
+            var result = await _borrowService.GetBorrowDetailsByNoAsync(borrowNo);
             return Json(result);
         }
 
@@ -273,7 +288,7 @@ namespace JPStockShowRoom.Controllers
         [HttpGet]
         public async Task<IActionResult> GetPendingBorrowDetails(string? article, string? edesArt, bool? isReturned)
         {
-            var result = await _stockManagementService.GetPendingBorrowDetailsAsync(article, edesArt, isReturned);
+            var result = await _borrowService.GetPendingBorrowDetailsAsync(article, edesArt, isReturned);
             return Json(result);
         }
 
@@ -282,7 +297,7 @@ namespace JPStockShowRoom.Controllers
         public async Task<IActionResult> CreateBorrowDocument([FromBody] int[] detailIds)
         {
             var userId = User.GetUserId() ?? 0;
-            var borrowNo = await _stockManagementService.CreateBorrowDocumentAsync(detailIds, userId);
+            var borrowNo = await _borrowService.CreateBorrowDocumentAsync(detailIds, userId);
             return Json(new { borrowNo });
         }
 
@@ -293,7 +308,7 @@ namespace JPStockShowRoom.Controllers
             var userId = User.GetUserId() ?? 0;
             try
             {
-                await _stockManagementService.CancelPendingBorrowAsync(id, userId);
+                await _borrowService.CancelPendingBorrowAsync(id, userId);
                 return Json(new { success = true });
             }
             catch (InvalidOperationException ex)
@@ -308,7 +323,7 @@ namespace JPStockShowRoom.Controllers
         {
             try
             {
-                var result = await _stockManagementService.GetReportStockListAsync(request.Article, request.EDesArt, request.Unit);
+                var result = await _stockQueryService.GetReportStockListAsync(request.Article, request.EDesArt, request.Unit);
                 var filtered = result.AsEnumerable();
 
                 if (request.RegistrationStatus.HasValue)
@@ -340,7 +355,7 @@ namespace JPStockShowRoom.Controllers
         {
             try
             {
-                var result = await _stockManagementService.GetReportStockListAsync(request.Article, request.EDesArt, request.Unit);
+                var result = await _stockQueryService.GetReportStockListAsync(request.Article, request.EDesArt, request.Unit);
                 var filtered = result.AsEnumerable();
 
                 if (request.RegistrationStatus.HasValue)
@@ -374,11 +389,11 @@ namespace JPStockShowRoom.Controllers
         public async Task<IActionResult> StockManagement()
         {
             var convertedItems = await _receiveManagementService.ConvertZArticlesAsync();
-            await _stockManagementService.SyncArticlesAsync();
-            var articles = await _stockManagementService.GetArticleListAsync();
+            await _stockQueryService.SyncArticlesAsync();
+            var articles = await _stockQueryService.GetArticleListAsync();
             ViewBag.Articles = articles;
-            ViewBag.BreakDescriptions = await _stockManagementService.GetBreakDescriptionsAsync();
-            ViewBag.ProductTypes = await _stockManagementService.GetProductTypesAsync();
+            ViewBag.BreakDescriptions = await _breakService.GetBreakDescriptionsAsync();
+            ViewBag.ProductTypes = await _stockQueryService.GetProductTypesAsync();
             ViewBag.ConvertedItems = convertedItems;
             ViewBag.CurrentUserId = User.GetUserId() ?? 0;
             return PartialView("~/Views/Partial/_StockManagement.cshtml");
@@ -388,7 +403,7 @@ namespace JPStockShowRoom.Controllers
         [HttpGet]
         public async Task<IActionResult> GetStockList(string? article, string? edesArt, int? registrationStatus, int page = 1, int pageSize = 20)
         {
-            var result = await _stockManagementService.GetStockListAsync(article, edesArt, null, registrationStatus, page, pageSize);
+            var result = await _stockQueryService.GetStockListAsync(article, edesArt, null, registrationStatus, page, pageSize);
             return Json(result);
         }
 
@@ -396,7 +411,7 @@ namespace JPStockShowRoom.Controllers
         [HttpGet]
         public async Task<IActionResult> GetTrayList(string? article)
         {
-            var result = await _stockManagementService.GetTrayListAsync(article);
+            var result = await _trayService.GetTrayListAsync(article);
             return Json(result);
         }
 
@@ -404,7 +419,7 @@ namespace JPStockShowRoom.Controllers
         [HttpGet]
         public async Task<IActionResult> GetTrayItems(int trayId)
         {
-            var result = await _stockManagementService.GetTrayItemsAsync(trayId);
+            var result = await _trayService.GetTrayItemsAsync(trayId);
             return Json(result);
         }
 
@@ -412,7 +427,7 @@ namespace JPStockShowRoom.Controllers
         [HttpGet]
         public async Task<IActionResult> GetReceivedForTray(int trayId, string? article)
         {
-            var result = await _stockManagementService.GetReceivedForTrayAsync(trayId, article);
+            var result = await _trayService.GetReceivedForTrayAsync(trayId, article);
             return Json(result);
         }
 
@@ -421,7 +436,7 @@ namespace JPStockShowRoom.Controllers
         public async Task<IActionResult> CreateTray(string trayNo, string? description)
         {
             var userId = User.GetUserId() ?? 0;
-            var result = await _stockManagementService.CreateTrayAsync(trayNo, description, userId);
+            var result = await _trayService.CreateTrayAsync(trayNo, description, userId);
             return Json(result);
         }
 
@@ -439,7 +454,7 @@ namespace JPStockShowRoom.Controllers
                     return BadRequest(new { message = "ไม่พบรายการสินค้า" });
                 }
 
-                await _stockManagementService.AddToTrayAsync(trayId, items, userId);
+                await _trayService.AddToTrayAsync(trayId, items, userId);
                 return Ok(new { message = "เพิ่มสินค้าลงถาดเรียบร้อย" });
             }
             catch (Exception ex)
@@ -452,7 +467,7 @@ namespace JPStockShowRoom.Controllers
         public async Task<IActionResult> RemoveFromTray([FromForm] List<int> trayItemIds)
         {
             var userId = User.GetUserId() ?? 0;
-            await _stockManagementService.RemoveFromTrayAsync(trayItemIds, userId);
+            await _trayService.RemoveFromTrayAsync(trayItemIds, userId);
             return Ok(new { message = "นำสินค้าออกจากถาดเรียบร้อย" });
         }
 
@@ -461,7 +476,7 @@ namespace JPStockShowRoom.Controllers
         public async Task<IActionResult> BorrowFromStock(string groupKey, decimal borrowQty)
         {
             var userId = User.GetUserId() ?? 0;
-            await _stockManagementService.BorrowFromStockAsync(groupKey, borrowQty, userId);
+            await _borrowService.BorrowFromStockAsync(groupKey, borrowQty, userId);
             return Ok(new { message = "ยืมสินค้าเรียบร้อย" });
         }
 
@@ -470,7 +485,7 @@ namespace JPStockShowRoom.Controllers
         public async Task<IActionResult> DeleteTray(int trayId)
         {
             var userId = User.GetUserId() ?? 0;
-            await _stockManagementService.DeleteTrayAsync(trayId, userId);
+            await _trayService.DeleteTrayAsync(trayId, userId);
             return Ok(new { message = "ลบถาดเรียบร้อย" });
         }
 
@@ -479,7 +494,7 @@ namespace JPStockShowRoom.Controllers
         public async Task<IActionResult> ReturnBorrow(int borrowDetailId)
         {
             var userId = User.GetUserId() ?? 0;
-            await _stockManagementService.ReturnBorrowAsync(borrowDetailId, userId);
+            await _borrowService.ReturnBorrowAsync(borrowDetailId, userId);
             return Ok(new { message = "คืนสินค้าเรียบร้อย" });
         }
 
@@ -487,7 +502,7 @@ namespace JPStockShowRoom.Controllers
         [HttpGet]
         public async Task<IActionResult> GetBorrowList(string? groupKey)
         {
-            var result = await _stockManagementService.GetBorrowListAsync(groupKey);
+            var result = await _borrowService.GetBorrowListAsync(groupKey);
             return Json(result);
         }
 
@@ -495,7 +510,7 @@ namespace JPStockShowRoom.Controllers
         [HttpGet]
         public async Task<IActionResult> GetBorrowsByStockId(string groupKey)
         {
-            var result = await _stockManagementService.GetBorrowsByStockIdAsync(groupKey);
+            var result = await _borrowService.GetBorrowsByStockIdAsync(groupKey);
             return Json(result);
         }
 
@@ -504,7 +519,7 @@ namespace JPStockShowRoom.Controllers
         public async Task<IActionResult> WithdrawFromStock(string groupKey, decimal withdrawQty, string? remark, bool isAdminAdded = false)
         {
             var userId = User.GetUserId() ?? 0;
-            await _stockManagementService.WithdrawFromStockAsync(groupKey, withdrawQty, remark, userId, isAdminAdded);
+            await _withdrawalService.WithdrawFromStockAsync(groupKey, withdrawQty, remark, userId, isAdminAdded);
             return Ok(new { message = "เบิกสินค้าออกเรียบร้อย" });
         }
 
@@ -512,7 +527,7 @@ namespace JPStockShowRoom.Controllers
         [HttpDelete]
         public async Task<IActionResult> DeleteAdminStock(string groupKey)
         {
-            await _stockManagementService.DeleteAdminStockAsync(groupKey);
+            await _adminStockService.DeleteAdminStockAsync(groupKey);
             return Ok(new { message = "ลบสินค้าเรียบร้อย" });
         }
 
@@ -520,7 +535,7 @@ namespace JPStockShowRoom.Controllers
         [HttpGet]
         public async Task<IActionResult> GetWithdrawalList()
         {
-            var result = await _stockManagementService.GetWithdrawalListAsync();
+            var result = await _withdrawalService.GetWithdrawalListAsync();
             return Json(result);
         }
 
@@ -528,7 +543,7 @@ namespace JPStockShowRoom.Controllers
         [HttpGet]
         public async Task<IActionResult> GetWithdrawalHeaders(string? article, string? withdrawalNo, string? edesArt)
         {
-            var result = await _stockManagementService.GetWithdrawalHeadersAsync(article, edesArt, withdrawalNo);
+            var result = await _withdrawalService.GetWithdrawalHeadersAsync(article, edesArt, withdrawalNo);
             return Json(result);
         }
 
@@ -536,7 +551,7 @@ namespace JPStockShowRoom.Controllers
         [HttpGet]
         public async Task<IActionResult> GetWithdrawalDetailsByNo(string withdrawalNo)
         {
-            var result = await _stockManagementService.GetWithdrawalDetailsByNoAsync(withdrawalNo);
+            var result = await _withdrawalService.GetWithdrawalDetailsByNoAsync(withdrawalNo);
             return Json(result);
         }
 
@@ -544,7 +559,7 @@ namespace JPStockShowRoom.Controllers
         [HttpGet]
         public async Task<IActionResult> GetPendingWithdrawalDetails(string? article, string? edesArt)
         {
-            var result = await _stockManagementService.GetPendingWithdrawalDetailsAsync(article, edesArt);
+            var result = await _withdrawalService.GetPendingWithdrawalDetailsAsync(article, edesArt);
             return Json(result);
         }
 
@@ -553,7 +568,7 @@ namespace JPStockShowRoom.Controllers
         public async Task<IActionResult> CreateWithdrawalDocument([FromBody] int[] detailIds)
         {
             var userId = User.GetUserId() ?? 0;
-            var withdrawalNo = await _stockManagementService.CreateWithdrawalDocumentAsync(detailIds, userId);
+            var withdrawalNo = await _withdrawalService.CreateWithdrawalDocumentAsync(detailIds, userId);
             return Json(new { withdrawalNo });
         }
 
@@ -564,7 +579,7 @@ namespace JPStockShowRoom.Controllers
             var userId = User.GetUserId() ?? 0;
             try
             {
-                await _stockManagementService.CancelPendingWithdrawalAsync(id, userId);
+                await _withdrawalService.CancelPendingWithdrawalAsync(id, userId);
                 return Json(new { success = true });
             }
             catch (InvalidOperationException ex)
@@ -577,7 +592,7 @@ namespace JPStockShowRoom.Controllers
         [HttpGet]
         public async Task<IActionResult> SearchAddStockItems(string? article, string? barcode)
         {
-            var result = await _stockManagementService.SearchAddStockItems(article ?? string.Empty, barcode ?? string.Empty);
+            var result = await _adminStockService.SearchAddStockItems(article ?? string.Empty, barcode ?? string.Empty);
             return Json(result);
         }
 
@@ -585,7 +600,7 @@ namespace JPStockShowRoom.Controllers
         [HttpGet]
         public async Task<IActionResult> GetArticleList()
         {
-            var result = await _stockManagementService.GetArticleListAsync();
+            var result = await _stockQueryService.GetArticleListAsync();
             return Json(result);
         }
 
@@ -600,7 +615,7 @@ namespace JPStockShowRoom.Controllers
             {
                 var userId = User.GetUserId() ?? 0;
                 using var stream = file.OpenReadStream();
-                var result = await _stockManagementService.ImportStockFromExcelAsync(stream, userId);
+                var result = await _adminStockService.ImportStockFromExcelAsync(stream, userId);
                 var failedRows = result.Rows.Where(r => !r.IsSuccess).ToList();
                 return Ok(new { successCount = result.SuccessCount, failedRows });
             }
@@ -618,7 +633,7 @@ namespace JPStockShowRoom.Controllers
             try
             {
                 var userId = User.GetUserId() ?? 0;
-                await _stockManagementService.AddStockAsync(barcode, qty, userId);
+                await _adminStockService.AddStockAsync(barcode, qty, userId);
                 return Ok(new { message = "เพิ่มสินค้าเข้า Stock เรียบร้อย" });
             }
             catch (InvalidOperationException ex)
@@ -663,7 +678,7 @@ namespace JPStockShowRoom.Controllers
         [Authorize]
         public async Task<IActionResult> GetBreak([FromBody] BreakAndLostFilterModel breakAndLostFilterModel)
         {
-            List<LostAndRepairModel> result = await _stockManagementService.GetBreakAsync(breakAndLostFilterModel);
+            List<LostAndRepairModel> result = await _breakService.GetBreakAsync(breakAndLostFilterModel);
             return Ok(result);
         }
 
@@ -673,7 +688,7 @@ namespace JPStockShowRoom.Controllers
         {
             try
             {
-                var result = await _stockManagementService.AddBreakAsync(groupKey, breakQty, breakDes);
+                var result = await _breakService.AddBreakAsync(groupKey, breakQty, breakDes);
                 return Ok(result);
             }
             catch (Exception ex)
@@ -689,7 +704,7 @@ namespace JPStockShowRoom.Controllers
         {
             try
             {
-                var result = await _stockManagementService.AddNewBreakDescription(breakDescription);
+                var result = await _breakService.AddNewBreakDescription(breakDescription);
                 return Ok(result);
             }
             catch (Exception ex)
@@ -708,12 +723,12 @@ namespace JPStockShowRoom.Controllers
                 List<LostAndRepairModel> result;
                 if (!string.IsNullOrWhiteSpace(breakAndLostFilterModel.BreakNo))
                 {
-                    result = await _stockManagementService.GetBreakDetailsByNoAsync(breakAndLostFilterModel.BreakNo);
+                    result = await _breakService.GetBreakDetailsByNoAsync(breakAndLostFilterModel.BreakNo);
                 }
                 else
                 {
-                    result = await _stockManagementService.GetBreakAsync(breakAndLostFilterModel);
-                    await _stockManagementService.PintedBreakReport(breakAndLostFilterModel.BreakIDs);
+                    result = await _breakService.GetBreakAsync(breakAndLostFilterModel);
+                    await _breakService.PintedBreakReport(breakAndLostFilterModel.BreakIDs);
                 }
                 byte[] pdfBytes = _reportService.GenerateBreakReport(result);
                 string contentDisposition = $"inline; filename=BreakReport_{DateTime.Now:yyyyMMdd}.pdf";
@@ -731,7 +746,7 @@ namespace JPStockShowRoom.Controllers
         [HttpGet]
         public async Task<IActionResult> GetBreakHeaders(string? article, string? breakNo, string? edesArt)
         {
-            var result = await _stockManagementService.GetBreakHeadersAsync(article, edesArt, breakNo);
+            var result = await _breakService.GetBreakHeadersAsync(article, edesArt, breakNo);
             return Json(result);
         }
 
@@ -739,7 +754,7 @@ namespace JPStockShowRoom.Controllers
         [HttpGet]
         public async Task<IActionResult> GetBreakDetailsByNo(string breakNo)
         {
-            var result = await _stockManagementService.GetBreakDetailsByNoAsync(breakNo);
+            var result = await _breakService.GetBreakDetailsByNoAsync(breakNo);
             return Json(result);
         }
 
@@ -747,7 +762,7 @@ namespace JPStockShowRoom.Controllers
         [HttpGet]
         public async Task<IActionResult> GetPendingBreakDetails(string? article, string? edesArt)
         {
-            var result = await _stockManagementService.GetPendingBreakDetailsAsync(article, edesArt);
+            var result = await _breakService.GetPendingBreakDetailsAsync(article, edesArt);
             return Json(result);
         }
 
@@ -758,7 +773,7 @@ namespace JPStockShowRoom.Controllers
             try
             {
                 var userId = int.Parse(User.FindFirst("UserID")?.Value ?? "0");
-                var breakNo = await _stockManagementService.CreateBreakDocumentAsync(detailIds, userId);
+                var breakNo = await _breakService.CreateBreakDocumentAsync(detailIds, userId);
                 return Json(new { breakNo });
             }
             catch (Exception ex)
@@ -810,5 +825,3 @@ namespace JPStockShowRoom.Controllers
         #endregion
     }
 }
-
-

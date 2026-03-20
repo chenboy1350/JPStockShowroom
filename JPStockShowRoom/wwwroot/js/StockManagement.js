@@ -418,7 +418,7 @@ function renderStockTable(totalCount, currentPage) {
             statusBadge = `<span class="badge badge-warning">รอลงทะเบียน</span>`;
             const breakBtn = (r.isFromSP || r.isAdminAdded) ? '' : `<button class="btn btn-danger btn-sm w-100" onclick="showBreakAdd('${r.groupKey}')" title="ส่งซ่อม"><i class="fas fa-hammer"></i> ส่งซ่อม</button>`;
             const withdrawBtn = r.availableQty > 0 ? `<button class="btn btn-secondary btn-sm w-100" onclick="withdrawStock('${r.groupKey}', ${r.availableQty}, ${r.ttWg}, ${r.isAdminAdded})" title="เบิกออก"><i class="fas fa-file-export"></i> เบิก</button>` : '';
-            const pendingDeleteBtn = r.isAdminAdded ? `<button class="btn btn-danger btn-sm w-100" onclick="deleteAdminStock('${r.groupKey}')" title="ลบสินค้า"><i class="fas fa-trash"></i> ลบ</button>` : '';
+            const pendingDeleteBtn = (r.isAdminAdded && window['_canDeleteAdminStock']) ? `<button class="btn btn-danger btn-sm w-100" onclick="deleteAdminStock('${r.groupKey}')" title="ลบสินค้า"><i class="fas fa-trash"></i> ลบ</button>` : '';
             const btns = [withdrawBtn, breakBtn, pendingDeleteBtn].filter(b => b).join('');
             actionBtn = btns ? `<div class="d-flex flex-column gap-1 align-items-center">${btns}</div>` : '';
         } else if (!r.isActive) {
@@ -443,7 +443,7 @@ function renderStockTable(totalCount, currentPage) {
                         <i class="fas fa-hammer"></i> ส่งซ่อม
                     </button>`;
 
-            const deleteBtn = r.isAdminAdded ? `<button class="btn btn-danger btn-sm w-100" onclick="deleteAdminStock('${r.groupKey}')" title="ลบสินค้า"><i class="fas fa-trash"></i> ลบ</button>` : '';
+            const deleteBtn = (r.isAdminAdded && window['_canDeleteAdminStock']) ? `<button class="btn btn-danger btn-sm w-100" onclick="deleteAdminStock('${r.groupKey}')" title="ลบสินค้า"><i class="fas fa-trash"></i> ลบ</button>` : '';
 
             const returnBtn = r.borrowCount > 0
                 ? `<button class="btn btn-warning btn-sm w-100" onclick="showReturnBorrow('${r.groupKey}')" title="คืนสินค้า">

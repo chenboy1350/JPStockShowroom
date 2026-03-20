@@ -34,8 +34,17 @@ builder.Services.AddScoped<IApiClientService, ApiClientService>();
 builder.Services.AddScoped<IPISService, PISService>();
 builder.Services.AddScoped<IReceiveManagementService, ReceiveManagementService>();
 builder.Services.AddScoped<IPermissionManagement, PermissionManagement>();
-builder.Services.AddScoped<IStockManagementService, StockManagementService>();
+
+// Stock sub-services
+builder.Services.AddScoped<StockGroupKeyHelper>();
+builder.Services.AddScoped<ITrayService, TrayService>();
+builder.Services.AddScoped<IBorrowService, BorrowService>();
+builder.Services.AddScoped<IWithdrawalService, WithdrawalService>();
+builder.Services.AddScoped<IBreakService, BreakService>();
+builder.Services.AddScoped<IAdminStockService, AdminStockService>();
+
 builder.Services.AddScoped<IReportService, ReportService>();
+builder.Services.AddScoped<IStockQueryService, StockQueryService>();
 
 builder.Services.AddAuthentication("AppCookieAuth")
     .AddCookie("AppCookieAuth", options =>

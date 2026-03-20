@@ -18,7 +18,8 @@
       "Bash(python -c \"import fpdf; import os; p = os.path.join\\(os.path.dirname\\(fpdf.__file__\\), ''data''\\); print\\(os.listdir\\(p\\)\\)\")",
       "Bash(python -c \"import docx; print\\(''''ok''''\\)\")",
       "Bash(python -c \"import docx; print\\(''python-docx ok''\\)\")",
-      "Bash(python generate_uat_docx.py)"
+      "Bash(python generate_uat_docx.py)",
+      "Bash(xargs wc:*)"
     ]
   }
 }

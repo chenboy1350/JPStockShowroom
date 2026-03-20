@@ -321,6 +321,7 @@
         window.urlGetBorrowsByStockId = '@Url.Action("GetBorrowsByStockId", "Home")';
         window.urlWithdrawFromStock = '@Url.Action("WithdrawFromStock", "Home")';
         window.urlDeleteAdminStock = '@Url.Action("DeleteAdminStock", "Home")';
+        window._canDeleteAdminStock = @((ViewBag.CurrentUserId == 1 || ViewBag.CurrentUserId == 28) ? "true" : "false");
         window.urlGetWithdrawalList = '@Url.Action("GetWithdrawalList", "Home")';
         window.urlGetArticleList = '@Url.Action("GetArticleList", "Home")';
 
